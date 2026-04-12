@@ -346,7 +346,7 @@ webrtc_ctx = webrtc_streamer(
     audio_receiver_size=1024,
     audio_processor_factory=AudioRecorder,
     media_stream_constraints={"audio": True, "video": False},
-    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},  # Added STUN
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
 )
 
 if webrtc_ctx.audio_processor:
@@ -439,25 +439,20 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             
             # Add EQ (using a simple low-shelf and high-shelf filter approximation)
             if bass_gain != 0:
-                # Using a Low Shelf filter for bass frequencies (200 Hz)
                 board.append(pb.LowShelfFilter(cutoff_frequency_hz=200, gain_db=bass_gain, q=0.7))
             if mid_gain != 0:
-                # Using a Peak filter for mid frequencies (2000 Hz)
                 board.append(pb.PeakFilter(cutoff_frequency_hz=2000, gain_db=mid_gain, q=0.7))
             if treble_gain != 0:
-                # Using a High Shelf filter for treble frequencies (4000 Hz)
                 board.append(pb.HighShelfFilter(cutoff_frequency_hz=4000, gain_db=treble_gain, q=0.7))
             
             # Add Compressor (simulated with a simple gain reduction)
             if compress_amount > 0:
-                # Map compress_amount to ratio (e.g., 1:1 to 8:1) and threshold
                 ratio = 1 + (compress_amount * 7)
                 threshold_db = -12 * compress_amount
                 board.append(pb.Compressor(threshold_db=threshold_db, ratio=ratio, attack_ms=10, release_ms=100))
             
             # Add Reverb
             if reverb_size > 0:
-                # Map reverb_size to room size (0.1 to 0.9)
                 room_size = 0.1 + (reverb_size * 0.8)
                 board.append(pb.Reverb(room_size=room_size, damping=0.5, wet_level=reverb_size, dry_level=1.0 - reverb_size, width=1.0))
             
