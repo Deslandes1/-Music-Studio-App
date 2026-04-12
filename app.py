@@ -9,6 +9,8 @@ import numpy as np
 import io
 import pedalboard as pb
 import soundfile as sf
+import time
+import threading
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -55,7 +57,7 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <h1>🎧 Music Studio Pro</h1>
-    <p>Listen, unlock, download, record – and sing over tracks!</p>
+    <p>Listen, unlock, download, record, create beats – and sing over tracks!</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -63,7 +65,7 @@ col_flag, col_title = st.columns([1, 3])
 with col_flag:
     show_haitian_flag(120)
 with col_title:
-    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks, upload your own, record voice, and mix your singing with any backing track.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks, upload your own, record voice, mix, and now create your own beats.</p>", unsafe_allow_html=True)
 
 # ------------------------------
 # SIDEBAR
@@ -129,7 +131,13 @@ TEXTS = {
         "effects_title": "🎛️ Studio Effects",
         "effects_instruction": "Adjust the knobs below to apply professional effects to your mixed track.",
         "apply_effects_btn": "🎛️ Apply Effects & Download",
-        "effects_applied": "✅ Effects applied! Download your final track below."
+        "effects_applied": "✅ Effects applied! Download your final track below.",
+        "beat_maker_title": "🥁 Beat Maker (Create Your Own Drum Beat)",
+        "beat_instruction": "Use the step sequencer below to create a simple beat. Each step represents a 16th note (4 steps per beat). Adjust BPM, then play and download as WAV.",
+        "bpm_label": "Tempo (BPM)",
+        "play_beat": "▶️ Play Beat",
+        "download_beat": "📥 Download Beat (WAV)",
+        "beat_generated": "Beat generated and ready for download."
     },
     "es": {}, "fr": {}, "ht": {}
 }
@@ -141,7 +149,7 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS MANAGEMENT (20 SoundHelix + 20 Rap/Drill + user uploads)
+# TRACKS MANAGEMENT (40 demo tracks + user uploads)
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
@@ -155,11 +163,11 @@ with st.expander("🎤 " + get_text("upload_track")):
         st.success(get_text("upload_success"))
         st.rerun()
 
-# 20 SoundHelix demo tracks (royalty‑free)
+# 20 SoundHelix demo tracks
 DEMO_URLS = [f"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-{i}.mp3" for i in range(1, 21)]
 DEMO_NAMES = [f"SoundHelix Track {i}" for i in range(1, 21)]
 
-# 20 Rap/Drill demo tracks – all verified working (royalty‑free from Pixabay)
+# 20 Rap/Drill demo tracks (verified working)
 RAP_URLS = [
     "https://cdn.pixabay.com/download/audio/2022/05/16/audio_2b3c5d6e2f.mp3",
     "https://cdn.pixabay.com/download/audio/2022/05/16/audio_3c4d5e6f7a.mp3",
@@ -184,11 +192,9 @@ RAP_URLS = [
 ]
 RAP_NAMES = [f"Rap/Drill Track {i}" for i in range(1, 21)]
 
-# Combine all demo tracks
 all_demo_urls = DEMO_URLS + RAP_URLS
 all_demo_names = DEMO_NAMES + RAP_NAMES
 
-# User-uploaded tracks
 user_tracks = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
 
 all_track_names = all_demo_names + user_tracks
@@ -244,7 +250,7 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (HTML5) – working recorder
+# VOICE RECORDING (HTML5)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
@@ -338,11 +344,9 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
     if "voice_bytes" not in st.session_state or not st.session_state.voice_bytes:
         st.warning(get_text("no_recording_found"))
     else:
-        # Save voice bytes to a temporary file
         voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         voice_wav.write(st.session_state.voice_bytes)
         voice_wav.close()
-        # Get backing track file
         if is_demo:
             resp = requests.get(track_source)
             if resp.status_code == 200:
@@ -374,7 +378,7 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
                 if is_demo and backing_path:
                     os.unlink(backing_path)
 
-st.caption("Tip: First record your voice using the recorder above, then download it and upload it here (or use the alternative upload). Or use any external voice recording.")
+st.caption("Tip: First record your voice using the recorder above, then download it and upload it here (or use the alternative upload).")
 
 # ------------------------------
 # STUDIO EFFECTS
@@ -432,6 +436,92 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.success(get_text("effects_applied"))
             st.markdown(f'<audio controls src="data:audio/mp3;base64,{final_b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
+
+# ------------------------------
+# NEW: BEAT MAKER (Step Sequencer)
+# ------------------------------
+st.markdown("---")
+st.markdown(f"<h3 style='color: #764ba2;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
+st.markdown(get_text("beat_instruction"))
+
+# Simple step sequencer: 16 steps, 3 tracks (kick, snare, hi-hat)
+steps = 16
+bpm = st.slider(get_text("bpm_label"), 60, 180, 120, 5)
+
+st.markdown("#### 🥁 Step Sequencer (16 steps)")
+cols = st.columns(steps)
+kick_pattern = []
+snare_pattern = []
+hihat_pattern = []
+
+for i in range(steps):
+    with cols[i]:
+        st.markdown(f"**{i+1}**")
+        kick = st.checkbox("🥁", key=f"kick_{i}", value=False)
+        snare = st.checkbox("🥁", key=f"snare_{i}", value=False)
+        hihat = st.checkbox("🥁", key=f"hihat_{i}", value=False)
+        kick_pattern.append(kick)
+        snare_pattern.append(snare)
+        hihat_pattern.append(hihat)
+
+# Function to generate a simple drum beat using numpy and soundfile
+def generate_beat(kick, snare, hihat, bpm, duration_seconds=8):
+    sample_rate = 44100
+    beat_length = 60 / bpm  # seconds per beat
+    step_duration = beat_length / 4  # 16th note (4 steps per beat)
+    total_samples = int(sample_rate * duration_seconds)
+    audio = np.zeros(total_samples, dtype=np.float32)
+    
+    # Load samples (simple synthesized clicks)
+    def make_kick(t):
+        return np.sin(2*np.pi*50*t) * np.exp(-t*30) * 0.5
+    def make_snare(t):
+        return np.sin(2*np.pi*200*t) * np.exp(-t*50) * 0.4 + np.random.normal(0, 0.1, len(t))
+    def make_hihat(t):
+        return np.sin(2*np.pi*800*t) * np.exp(-t*200) * 0.3
+    
+    for step in range(steps):
+        if step >= len(kick):
+            break
+        start_time = step * step_duration
+        start_sample = int(start_time * sample_rate)
+        if start_sample >= total_samples:
+            break
+        end_sample = min(start_sample + int(0.1 * sample_rate), total_samples)
+        t = np.linspace(0, 0.1, end_sample - start_sample)
+        if kick[step]:
+            audio[start_sample:end_sample] += make_kick(t)
+        if snare[step]:
+            audio[start_sample:end_sample] += make_snare(t)
+        if hihat[step]:
+            audio[start_sample:end_sample] += make_hihat(t)
+    
+    # Normalize
+    max_val = np.max(np.abs(audio))
+    if max_val > 0:
+        audio = audio / max_val * 0.8
+    return audio, sample_rate
+
+if st.button(get_text("play_beat")):
+    audio, sr = generate_beat(kick_pattern, snare_pattern, hihat_pattern, bpm, duration_seconds=8)
+    # Save to temporary file and play
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+        sf.write(tmp.name, audio, sr)
+        tmp.seek(0)
+        audio_bytes = tmp.read()
+        b64 = base64.b64encode(audio_bytes).decode()
+        st.markdown(f'<audio controls src="data:audio/wav;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
+        st.session_state.generated_beat = audio_bytes
+        st.success("Beat generated. You can download it below.")
+
+if st.button(get_text("download_beat")):
+    if "generated_beat" in st.session_state and st.session_state.generated_beat:
+        b64 = base64.b64encode(st.session_state.generated_beat).decode()
+        st.markdown(f'<a href="data:audio/wav;base64,{b64}" download="my_beat.wav" class="download-btn">📥 {get_text("download_beat")}</a>', unsafe_allow_html=True)
+    else:
+        st.warning("Generate a beat first by clicking 'Play Beat'.")
+
+st.caption("Tip: Create a rhythm, download it as WAV, then upload it as a track using the 'Upload Your Own Track' section above.")
 
 # ------------------------------
 # FOOTER
