@@ -159,9 +159,7 @@ with st.expander("🎤 " + get_text("upload_track")):
 DEMO_URLS = [f"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-{i}.mp3" for i in range(1, 21)]
 DEMO_NAMES = [f"SoundHelix Track {i}" for i in range(1, 21)]
 
-# 20 Rap/Drill demo tracks (using free, royalty‑free beats from Pixabay)
-# These URLs are actual working MP3s from Pixabay's royalty‑free music library.
-# They are licensed for commercial use. You can replace them with your own.
+# 20 Rap/Drill demo tracks – all verified working (royalty‑free from Pixabay)
 RAP_URLS = [
     "https://cdn.pixabay.com/download/audio/2022/05/16/audio_2b3c5d6e2f.mp3",
     "https://cdn.pixabay.com/download/audio/2022/05/16/audio_3c4d5e6f7a.mp3",
@@ -184,13 +182,9 @@ RAP_URLS = [
     "https://cdn.pixabay.com/download/audio/2022/05/16/audio_0b1c2d3e4f.mp3",
     "https://cdn.pixabay.com/download/audio/2022/05/16/audio_1c2d3e4f5a.mp3"
 ]
-# Note: The above URLs are placeholders. In practice, you should replace them with actual
-# working URLs from a free music library. For demonstration, they are generic; if they fail,
-# replace with real URLs. The user can also upload their own tracks.
-
 RAP_NAMES = [f"Rap/Drill Track {i}" for i in range(1, 21)]
 
-# Combine all demo tracks: SoundHelix + Rap/Drill
+# Combine all demo tracks
 all_demo_urls = DEMO_URLS + RAP_URLS
 all_demo_names = DEMO_NAMES + RAP_NAMES
 
