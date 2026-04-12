@@ -329,7 +329,7 @@ if voice_file is not None:
     st.success("Voice file loaded. You can now mix it with the backing track.")
 
 # ------------------------------
-# SING OVER TRACK
+# SING OVER TRACK (FIXED: proper quoting of file paths)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
@@ -340,9 +340,11 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
     if "voice_bytes" not in st.session_state or not st.session_state.voice_bytes:
         st.warning(get_text("no_recording_found"))
     else:
+        # Save voice bytes to a temporary WAV file
         voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         voice_wav.write(st.session_state.voice_bytes)
         voice_wav.close()
+        # Get backing track file (download demo if needed)
         if is_demo:
             resp = requests.get(track_source)
             if resp.status_code == 200:
@@ -356,9 +358,10 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
             backing_path = track_source
         if backing_path:
             output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-            cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[0:a]volume={backing_volume}[backing];[1:a][backing]amix=inputs=2:duration=longest' -y {output_path}"
+            # IMPORTANT: Quote paths to handle spaces and special characters
+            cmd = f'ffmpeg -i "{backing_path}" -i "{voice_wav.name}" -filter_complex "[0:a]volume={backing_volume}[backing];[1:a][backing]amix=inputs=2:duration=longest" -y "{output_path}"'
             try:
-                subprocess.run(cmd, shell=True, check=True, capture_output=True)
+                subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
                 st.success(get_text("mix_success"))
                 with open(output_path, "rb") as f:
                     mixed_bytes = f.read()
@@ -367,7 +370,7 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
                     st.markdown(f'<audio controls src="data:audio/mp3;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
                     st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
             except subprocess.CalledProcessError as e:
-                st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
+                st.error(f"{get_text('mix_error')}: {e.stderr}")
             finally:
                 os.unlink(voice_wav.name)
                 if is_demo and backing_path:
@@ -432,7 +435,7 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# ENHANCED BEAT MAKER (Rich Sounds)
+# ENHANCED BEAT MAKER (rich sounds)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
@@ -441,7 +444,7 @@ st.markdown(get_text("beat_instruction"))
 steps = 16
 bpm = st.slider(get_text("bpm_label"), 60, 180, 120, 5)
 
-# Define drum tracks with rich synthesis parameters
+# Define drum tracks with synthesis methods
 tracks = [
     {"name": "Kick", "key": "kick", "synthesis": "kick", "vol_default": 1.0},
     {"name": "Snare", "key": "snare", "synthesis": "snare", "vol_default": 1.0},
@@ -477,7 +480,6 @@ def generate_kick(sample_rate, duration=0.2, freq_start=80, freq_end=40):
     t = np.linspace(0, duration, int(sample_rate*duration))
     freq = np.exp(np.linspace(np.log(freq_start), np.log(freq_end), len(t)))
     tone = np.sin(2*np.pi * freq * t)
-    # Add click
     click = np.random.normal(0, 0.2, len(t)) * np.exp(-t*100)
     envelope = np.exp(-t*30)
     return (tone + click) * envelope * 0.5
@@ -540,7 +542,7 @@ def generate_track_audio(pattern, bpm, synthesis_type, duration_seconds=8):
         audio[start_sample:end_sample] += sound[:end_sample-start_sample]
     return audio, sample_rate
 
-# Play All Tracks
+# Play All Tracks button
 if st.button(get_text("play_all")):
     with st.spinner("Generating beat..."):
         mixed_audio = None
@@ -563,11 +565,9 @@ if st.button(get_text("play_all")):
         if not any_active:
             st.warning("No patterns selected. Please add some steps.")
         else:
-            # Normalize
             max_val = np.max(np.abs(mixed_audio))
             if max_val > 0:
                 mixed_audio = mixed_audio / max_val * 0.8
-            # Save and play
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
                 sf.write(tmp.name, mixed_audio, sample_rate)
                 tmp.seek(0)
