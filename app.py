@@ -93,7 +93,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------
-# LANGUAGE
+# LANGUAGE (fallback to English)
 # ------------------------------
 LANGUAGES = {"English":"en","Español":"es","Français":"fr","Kreyòl Ayisyen":"ht"}
 TEXTS = {
@@ -123,7 +123,6 @@ TEXTS = {
         "sing_over_title": "🎤 Sing Over Track (Record Voice + Backing)",
         "sing_instruction": "Select a backing track, then record your voice. Use the slider to control backing volume (lower to make your voice louder).",
         "backing_volume_label": "🔊 Backing Track Volume (0=silent, 1=normal, 2=double)",
-        "start_sing_rec": "🔴 Start Recording Voice",
         "stop_sing_rec": "⏹️ Stop & Mix with Backing",
         "sing_recording_saved": "✅ Voice recorded! Mixing with backing track...",
         "mix_success": "✅ Mixed track ready! Download below.",
@@ -180,10 +179,8 @@ selected_track_name = all_track_names[selected_index]
 is_demo = all_track_is_demo[selected_index]
 track_source = all_track_url_or_path[selected_index]
 
-if is_demo:
-    st.audio(track_source, format="audio/mp3")
-else:
-    st.audio(track_source, format="audio/mp3")
+# Display audio player for the selected track
+st.audio(track_source, format="audio/mp3")
 
 # ------------------------------
 # UNLOCK & DOWNLOAD
@@ -323,6 +320,7 @@ class SingProcessor(AudioProcessorBase):
         self.frames.append(frame.to_ndarray().copy())
         return frame
 
+# WebRTC streamer (microphone button will appear)
 webrtc_ctx = webrtc_streamer(
     key="sing",
     mode=WebRtcMode.SENDRECV,
