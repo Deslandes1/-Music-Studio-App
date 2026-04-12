@@ -1,11 +1,12 @@
 import streamlit as st
 import os
 import base64
+import requests
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
 # ------------------------------
-st.set_page_config(page_title="Music Studio", layout="wide")
+st.set_page_config(page_title="Music Studio Pro", layout="wide")
 
 def show_haitian_flag(width=100):
     st.image("https://flagcdn.com/w320/ht.png", width=width)
@@ -21,7 +22,7 @@ if not st.session_state.authenticated:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         show_haitian_flag(150)
-        st.markdown("<h2 style='text-align: center;'>Music Studio</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'>Music Studio Pro</h2>", unsafe_allow_html=True)
         st.markdown("<p style='text-align: center;'>by GlobalInternet.py</p>", unsafe_allow_html=True)
         password_input = st.text_input("Enter password to access", type="password")
         if st.button("Login"):
@@ -33,23 +34,86 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ------------------------------
-# AFTER LOGIN – MAIN APP
+# CUSTOM CSS FOR STUDIO LOOK
 # ------------------------------
-st.markdown(
-    """
-    <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
-        <h1 style='color: white; margin: 0; font-size: 2.5rem;'>🎧 Music Studio</h1>
-        <p style='color: #FFD700; margin: 0; font-size: 1.1rem;'>Listen to premium tracks | Unlock download with purchase password</p>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+st.markdown("""
+<style>
+    .main-header {
+        background: linear-gradient(135deg, #1e3c72, #2a5298);
+        padding: 1.5rem;
+        border-radius: 20px;
+        text-align: center;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        margin-bottom: 1rem;
+    }
+    .main-header h1 {
+        color: white;
+        margin: 0;
+        font-size: 2.5rem;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    .main-header p {
+        color: #FFD700;
+        margin: 0;
+        font-size: 1.1rem;
+    }
+    .track-card {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    .track-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    .unlock-section {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        padding: 1.5rem;
+        border-radius: 20px;
+        margin: 1rem 0;
+        color: white;
+    }
+    .download-btn {
+        background-color: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 30px;
+        text-decoration: none;
+        font-weight: bold;
+        display: inline-block;
+        transition: background-color 0.3s;
+    }
+    .download-btn:hover {
+        background-color: #218838;
+    }
+    .footer {
+        text-align: center;
+        color: #666;
+        margin-top: 2rem;
+        padding-top: 1rem;
+        border-top: 1px solid #ddd;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# ------------------------------
+# HEADER
+# ------------------------------
+st.markdown("""
+<div class="main-header">
+    <h1>🎧 Music Studio Pro</h1>
+    <p>Listen, unlock, download – your premium music destination</p>
+</div>
+""", unsafe_allow_html=True)
 
 col_flag, col_title = st.columns([1, 3])
 with col_flag:
     show_haitian_flag(120)
 with col_title:
-    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview our exclusive collection. To download, you need a purchase password (contact us).</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks before you buy. Enter the purchase password (provided after payment) to unlock downloads.</p>", unsafe_allow_html=True)
 
 # ------------------------------
 # SIDEBAR – COMPANY INFO & LOGOUT
@@ -57,7 +121,7 @@ with col_title:
 with st.sidebar:
     st.markdown("## 🇭🇹 GlobalInternet.py")
     show_haitian_flag(80)
-    st.markdown("### Music Studio")
+    st.markdown("### Music Studio Pro")
     st.markdown("---")
     st.markdown("**Founder & Developer:**")
     st.markdown("Gesner Deslandes")
@@ -96,7 +160,8 @@ TEXTS = {
         "download_ready": "Download ready! Click the button below to save the file.",
         "contact": "📞 To get the purchase password, contact us on WhatsApp or email.",
         "track_info": "🎧 Preview only – full MP3 download after unlocking.",
-        "no_tracks": "No demo tracks found. Please add MP3 files to the 'tracks' folder in the repository."
+        "demo_track_name": "Demo Track (SoundHelix)",
+        "no_tracks": "No tracks found. Add MP3 files to the 'tracks' folder or use the demo track."
     },
     "es": {
         "select_track": "🎵 Selecciona una pista",
@@ -108,7 +173,8 @@ TEXTS = {
         "download_ready": "¡Descarga lista! Haz clic en el botón para guardar el archivo.",
         "contact": "📞 Para obtener la contraseña de compra, contáctenos por WhatsApp o email.",
         "track_info": "🎧 Solo vista previa – descarga completa después de desbloquear.",
-        "no_tracks": "No se encontraron pistas de demostración. Agregue archivos MP3 a la carpeta 'tracks' en el repositorio."
+        "demo_track_name": "Pista de demostración (SoundHelix)",
+        "no_tracks": "No se encontraron pistas. Agrega archivos MP3 a la carpeta 'tracks' o usa la pista de demostración."
     },
     "fr": {
         "select_track": "🎵 Choisissez un morceau",
@@ -120,7 +186,8 @@ TEXTS = {
         "download_ready": "Téléchargement prêt ! Cliquez sur le bouton pour enregistrer le fichier.",
         "contact": "📞 Pour obtenir le mot de passe d'achat, contactez-nous par WhatsApp ou email.",
         "track_info": "🎧 Aperçu seulement – téléchargement complet après déverrouillage.",
-        "no_tracks": "Aucun morceau de démonstration trouvé. Ajoutez des fichiers MP3 dans le dossier 'tracks' du dépôt."
+        "demo_track_name": "Morceau de démonstration (SoundHelix)",
+        "no_tracks": "Aucun morceau trouvé. Ajoutez des fichiers MP3 dans le dossier 'tracks' ou utilisez le morceau de démonstration."
     },
     "ht": {
         "select_track": "🎵 Chwazi yon mòso",
@@ -132,7 +199,8 @@ TEXTS = {
         "download_ready": "Telechajman pare! Klike sou bouton an pou sove fichye a.",
         "contact": "📞 Pou jwenn modpas acha a, kontakte nou sou WhatsApp oswa imèl.",
         "track_info": "🎧 Apèsi selman – telechajman konplè apre deklannchman.",
-        "no_tracks": "Pa gen mòso demonstrasyon. Ajoute fichye MP3 nan dosye 'tracks' nan depo a."
+        "demo_track_name": "Mòso demonstrasyon (SoundHelix)",
+        "no_tracks": "Pa gen mòso. Ajoute fichye MP3 nan dosye 'tracks' oswa itilize mòso demonstrasyon an."
     }
 }
 
@@ -151,21 +219,29 @@ TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 
 track_files = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
-
-st.markdown("---")
-st.markdown(f"<h3 style='color: #764ba2;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
+DEMO_MP3_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+DEMO_TRACK_NAME = get_text("demo_track_name")
 
 if not track_files:
-    st.warning(get_text("no_tracks"))
-    # Show a placeholder message, no audio player
-    st.info("🎧 Once you upload MP3 files to the 'tracks' folder, they will appear here.")
+    st.info(get_text("no_tracks"))
+    track_list = [DEMO_TRACK_NAME]
+    is_demo = True
 else:
-    selected_track = st.selectbox("", track_files, label_visibility="collapsed")
+    track_list = track_files
+    is_demo = False
+
+st.markdown(f"<h3 style='color: #764ba2;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
+selected_track = st.selectbox("", track_list, label_visibility="collapsed")
+
+# Track preview (audio player)
+if is_demo:
+    st.audio(DEMO_MP3_URL, format="audio/mp3")
+else:
     track_path = os.path.join(TRACKS_DIR, selected_track)
     st.audio(track_path, format="audio/mp3")
 
 # ------------------------------
-# DOWNLOAD UNLOCK SECTION (always visible)
+# UNLOCK & DOWNLOAD SECTION
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>⬇️ {get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
@@ -173,7 +249,7 @@ st.markdown(f"<h3 style='color: #764ba2;'>⬇️ {get_text('purchase_password_la
 purchase_pass = st.text_input("", type="password", placeholder="Enter purchase password", label_visibility="collapsed")
 
 if st.button(get_text("unlock_btn"), use_container_width=True):
-    # CHANGE THIS PASSWORD TO YOUR SECRET (e.g., "music2026")
+    # CHANGE THIS PASSWORD TO YOUR SECRET (artist's purchase password)
     if purchase_pass == "music2026":
         st.session_state.purchase_unlocked = True
         st.success(get_text("unlock_success"))
@@ -181,16 +257,24 @@ if st.button(get_text("unlock_btn"), use_container_width=True):
         st.session_state.purchase_unlocked = False
         st.error(get_text("wrong_password"))
 
-# Download section (only if tracks exist and unlocked)
 if st.session_state.purchase_unlocked:
-    if not track_files:
-        st.info("No tracks available to download. Please add MP3 files to the 'tracks' folder.")
+    if is_demo:
+        try:
+            response = requests.get(DEMO_MP3_URL)
+            if response.status_code == 200:
+                audio_bytes = response.content
+                b64 = base64.b64encode(audio_bytes).decode()
+                st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="demo_track.mp3" class="download-btn">📥 {get_text("download_btn")}</a>', unsafe_allow_html=True)
+                st.caption(get_text("download_ready"))
+            else:
+                st.error("Could not fetch demo track. Please add your own MP3 files to the 'tracks' folder.")
+        except Exception as e:
+            st.error(f"Error: {e}")
     else:
         with open(track_path, "rb") as f:
             audio_bytes = f.read()
             b64 = base64.b64encode(audio_bytes).decode()
-            href = f'<a href="data:audio/mp3;base64,{b64}" download="{selected_track}" style="background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold;">📥 {get_text("download_btn")}</a>'
-            st.markdown(href, unsafe_allow_html=True)
+            st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="{selected_track}" class="download-btn">📥 {get_text("download_btn")}</a>', unsafe_allow_html=True)
             st.caption(get_text("download_ready"))
 else:
     st.info("🔒 " + get_text("track_info"))
@@ -198,5 +282,4 @@ else:
 st.markdown(f"<p style='margin-top: 20px;'>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # Footer
-st.markdown("---")
-st.markdown("<p style='text-align: center; color: #666;'>🇭🇹 *GlobalInternet.py – Music Studio* 🇭🇹</p>", unsafe_allow_html=True)
+st.markdown('<div class="footer">🇭🇹 *GlobalInternet.py – Music Studio Pro* 🇭🇹</div>', unsafe_allow_html=True)
