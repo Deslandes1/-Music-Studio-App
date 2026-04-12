@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import base64
-from PIL import Image
+from io import BytesIO
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -36,7 +36,6 @@ if not st.session_state.authenticated:
 # ------------------------------
 # AFTER LOGIN – MAIN APP
 # ------------------------------
-# Colorful header
 st.markdown(
     """
     <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 1.5rem; border-radius: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2);'>
@@ -143,38 +142,48 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS DATABASE
+# TRACKS (with a fallback demo track if folder is empty)
 # ------------------------------
 TRACKS_DIR = "tracks"
-if not os.path.exists(TRACKS_DIR):
-    os.makedirs(TRACKS_DIR)
-    st.warning("No tracks folder found. Please upload MP3 files to the 'tracks' directory.")
+os.makedirs(TRACKS_DIR, exist_ok=True)
 
+# Get list of MP3 files
 track_files = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
-if not track_files:
-    st.info("No demo tracks available yet. Please contact the administrator.")
-    st.stop()
 
-# Colorful track selector
+# If no tracks, create a silent demo track placeholder
+if not track_files:
+    st.warning("No MP3 files found in the 'tracks' folder. Using a silent demo track to test the interface. Upload your own MP3 files to the 'tracks' folder.")
+    # Create a dummy silent track (base64 encoded silent MP3)
+    dummy_audio = base64.b64decode("//MkxAAuF6sAAAAAASIIIIIIAAAAAAgAAAAAAD//w==")
+    track_files = ["demo_silent_track.mp3"]
+    track_path = BytesIO(dummy_audio)
+    is_dummy = True
+else:
+    is_dummy = False
+
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
-selected_track = st.selectbox("", track_files, label_visibility="collapsed")
-track_path = os.path.join(TRACKS_DIR, selected_track)
+
+if not is_dummy:
+    selected_track = st.selectbox("", track_files, label_visibility="collapsed")
+    track_path = os.path.join(TRACKS_DIR, selected_track)
+else:
+    selected_track = "demo_silent_track.mp3"
+    # track_path already set
 
 # Audio player (preview)
 st.audio(track_path, format="audio/mp3")
 
 # ------------------------------
-# DOWNLOAD UNLOCK SECTION
+# DOWNLOAD UNLOCK SECTION (ALWAYS VISIBLE)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>⬇️ {get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
 
-# Purchase password input
 purchase_pass = st.text_input("", type="password", placeholder="Enter purchase password", label_visibility="collapsed")
 
 if st.button(get_text("unlock_btn"), use_container_width=True):
-    # The purchase password (you can change this to any secret word)
+    # CHANGE THIS PASSWORD TO YOUR SECRET (e.g., "music2026")
     if purchase_pass == "music2026":
         st.session_state.purchase_unlocked = True
         st.success(get_text("unlock_success"))
@@ -182,15 +191,17 @@ if st.button(get_text("unlock_btn"), use_container_width=True):
         st.session_state.purchase_unlocked = False
         st.error(get_text("wrong_password"))
 
-# If unlocked, show download button
+# Download section
 if st.session_state.purchase_unlocked:
-    st.markdown(f"### {get_text('download_btn')}")
-    with open(track_path, "rb") as f:
-        audio_bytes = f.read()
-        b64 = base64.b64encode(audio_bytes).decode()
-        href = f'<a href="data:audio/mp3;base64,{b64}" download="{selected_track}" style="background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold;">📥 {get_text("download_btn")}</a>'
-        st.markdown(href, unsafe_allow_html=True)
-        st.caption(get_text("download_ready"))
+    if is_dummy:
+        st.info("This is a demo track. Upload real MP3 files to the 'tracks' folder to download them.")
+    else:
+        with open(track_path, "rb") as f:
+            audio_bytes = f.read()
+            b64 = base64.b64encode(audio_bytes).decode()
+            href = f'<a href="data:audio/mp3;base64,{b64}" download="{selected_track}" style="background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold;">📥 {get_text("download_btn")}</a>'
+            st.markdown(href, unsafe_allow_html=True)
+            st.caption(get_text("download_ready"))
 else:
     st.info("🔒 " + get_text("track_info"))
 
