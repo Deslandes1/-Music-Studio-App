@@ -6,23 +6,20 @@ import tempfile
 import subprocess
 import wave
 import numpy as np
-from pathlib import Path
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 import av
 import pedalboard as pb
-import librosa
 import soundfile as sf
 import io
 
 # ------------------------------
-# PAGE CONFIG & LOGIN
+# PAGE CONFIG & LOGIN (same as before)
 # ------------------------------
 st.set_page_config(page_title="Music Studio Pro", layout="wide")
 
 def show_haitian_flag(width=100):
     st.image("https://flagcdn.com/w320/ht.png", width=width)
 
-# Authentication
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "purchase_unlocked" not in st.session_state:
@@ -49,20 +46,11 @@ if not st.session_state.authenticated:
 # ------------------------------
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #1e3c72, #2a5298);
-        padding: 1.5rem;
-        border-radius: 20px;
-        text-align: center;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        margin-bottom: 1rem;
-    }
+    .main-header { background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 1.5rem; border-radius: 20px; text-align: center; margin-bottom: 1rem; }
     .main-header h1 { color: white; margin: 0; font-size: 2.5rem; }
     .main-header p { color: #FFD700; margin: 0; font-size: 1.1rem; }
-    .unlock-section { background: linear-gradient(135deg, #667eea, #764ba2); padding: 1.5rem; border-radius: 20px; margin: 1rem 0; color: white; }
     .download-btn { background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; display: inline-block; }
     .footer { text-align: center; color: #666; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
-    .effect-slider { margin-bottom: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -80,7 +68,7 @@ with col_title:
     st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks, upload your own, record voice, and mix your singing with any backing track.</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# SIDEBAR – COMPANY INFO & LOGOUT
+# SIDEBAR
 # ------------------------------
 with st.sidebar:
     st.markdown("## 🇭🇹 GlobalInternet.py")
@@ -105,7 +93,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------
-# MULTI-LANGUAGE WITH FALLBACK TO ENGLISH
+# LANGUAGE (simplified fallback)
 # ------------------------------
 LANGUAGES = {"English":"en","Español":"es","Français":"fr","Kreyòl Ayisyen":"ht"}
 TEXTS = {
@@ -134,42 +122,33 @@ TEXTS = {
         "track_name_label": "Track name (without extension):",
         "track_saved": "✅ Track saved to the library! Refresh the track list.",
         "sing_over_title": "🎤 Sing Over Track (Record Voice + Backing)",
-        "sing_instruction": "Select a backing track, then record your voice while it plays. The app will mix them into a single MP3.",
-        "start_sing_rec": "🔴 Start Singing Recording",
-        "stop_sing_rec": "⏹️ Stop Recording & Mix",
+        "sing_instruction": "Select a backing track, then record your voice. The app will mix them.",
+        "start_sing_rec": "🔴 Start Recording Voice",
+        "stop_sing_rec": "⏹️ Stop & Mix with Backing",
         "sing_recording_saved": "✅ Voice recorded! Mixing with backing track...",
         "mix_success": "✅ Mixed track ready! Download below.",
         "mix_error": "Mixing failed. Make sure ffmpeg is installed.",
-        "download_mixed": "📥 Download Mixed Track (Backing + Voice)",
+        "download_mixed": "📥 Download Mixed Track",
         "effects_title": "🎛️ Studio Effects",
         "effects_instruction": "Adjust the knobs below to apply professional effects to your mixed track.",
         "apply_effects_btn": "🎛️ Apply Effects & Download",
         "effects_applied": "✅ Effects applied! Download your final track below."
     },
-    # For other languages we fall back to English, so we leave them empty or minimal.
-    "es": {},
-    "fr": {},
-    "ht": {}
+    "es": {}, "fr": {}, "ht": {}
 }
-
 def get_text(key):
     lang = st.session_state.get("language", "en")
-    # If the language dictionary doesn't contain the key, fall back to English
-    if key in TEXTS[lang]:
-        return TEXTS[lang][key]
-    else:
-        return TEXTS["en"].get(key, key)
+    return TEXTS[lang].get(key, TEXTS["en"].get(key, key))
 
 lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS MANAGEMENT (upload + demo)
+# TRACKS MANAGEMENT
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 
-# Upload new track
 with st.expander("🎤 " + get_text("upload_track")):
     uploaded_file = st.file_uploader("", type=["mp3"], label_visibility="collapsed")
     if uploaded_file is not None:
@@ -239,7 +218,7 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (HTML5 recorder – unchanged)
+# VOICE RECORDING (HTML5)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
@@ -326,153 +305,164 @@ if voice_file is not None:
 st.caption("Tip: You can record on your phone or computer using any voice recorder, then upload the file here.")
 
 # ------------------------------
-# SING OVER TRACK (with STUN server for WebRTC)
+# SING OVER TRACK (FIXED)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("sing_instruction"))
 
-class AudioRecorder(AudioProcessorBase):
+# Create a simple audio processor that accumulates frames
+class RecordingProcessor(AudioProcessorBase):
     def __init__(self):
-        self.audio_frames = []
+        self.frames = []
     def recv(self, frame: av.AudioFrame):
-        self.audio_frames.append(frame.to_ndarray().copy())
+        self.frames.append(frame.to_ndarray().copy())
         return frame
 
-# Configure WebRTC with a public STUN server to avoid connection timeout
+# We need to manage recording state manually: webrtc_streamer creates a context, but we can't easily control start/stop from buttons.
+# Instead, we'll use a single webrtc_streamer that is always on, and we use a session state flag to record.
+# But that's complex. Simpler: we'll use the same approach as the voice recording above (HTML5) but we need to mix with backing track.
+# Actually the HTML5 recorder gives a WAV blob, we can then use that as the voice file. That's easier and works.
+# So we can reuse the HTML5 recorder for singing as well. But the user asked for "sing over track", meaning record while the backing plays.
+# The HTML5 recorder can record while the user plays the backing track in another tab? Not ideal.
+# Let's keep the webrtc approach but fix the UI.
+
+# We'll display a webrtc_streamer with a visible audio element and provide Start/Stop buttons that control the stream.
+# The webrtc_streamer automatically starts when the page loads; we need to start recording programmatically. Not possible.
+# Alternative: Use the webrtc_streamer's built-in "Start" button (the microphone icon). The user must click that.
+# Then we provide a "Stop & Mix" button that reads the accumulated frames.
+
+# To make it obvious, we'll place the webrtc_streamer inside an expander and give clear instructions.
+
+with st.expander("🎤 Click here to open the recorder", expanded=True):
+    st.markdown("**1. Click the microphone button below to start recording.**")
+    st.markdown("**2. Sing along with the backing track (play it in the player above).**")
+    st.markdown("**3. Click 'Stop Recording' on the recorder, then click the 'Stop & Mix' button.**")
+
+# Create a session state to store recorded frames
+if "recorded_frames" not in st.session_state:
+    st.session_state.recorded_frames = None
+
+class SingProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.frames = []
+    def recv(self, frame: av.AudioFrame):
+        self.frames.append(frame.to_ndarray().copy())
+        return frame
+
 webrtc_ctx = webrtc_streamer(
-    key="sing-over-track",
+    key="sing",
     mode=WebRtcMode.SENDRECV,
     audio_receiver_size=1024,
-    audio_processor_factory=AudioRecorder,
+    audio_processor_factory=SingProcessor,
     media_stream_constraints={"audio": True, "video": False},
     rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
 )
 
 if webrtc_ctx.audio_processor:
+    # Store frames periodically? We'll just use the button to capture.
     if st.button(get_text("stop_sing_rec")):
-        # Save recorded voice as WAV
-        audio_data = np.concatenate(webrtc_ctx.audio_processor.audio_frames, axis=0)
-        voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        with wave.open(voice_wav.name, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(48000)
-            wf.writeframes((audio_data * 32767).astype(np.int16).tobytes())
-        st.success(get_text("sing_recording_saved"))
+        frames = webrtc_ctx.audio_processor.frames
+        if frames:
+            audio_data = np.concatenate(frames, axis=0)
+            # Save as WAV
+            voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+            with wave.open(voice_wav.name, 'wb') as wf:
+                wf.setnchannels(1)
+                wf.setsampwidth(2)
+                wf.setframerate(48000)
+                wf.writeframes((audio_data * 32767).astype(np.int16).tobytes())
+            st.success(get_text("sing_recording_saved"))
 
-        # Get backing track file
-        if is_demo:
-            resp = requests.get(DEMO_MP3_URL)
-            if resp.status_code == 200:
-                backing_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-                with open(backing_path, "wb") as f:
-                    f.write(resp.content)
+            # Get backing track
+            if is_demo:
+                resp = requests.get(DEMO_MP3_URL)
+                if resp.status_code == 200:
+                    backing_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                    with open(backing_path, "wb") as f:
+                        f.write(resp.content)
+                else:
+                    st.error("Could not download backing track.")
+                    backing_path = None
             else:
-                st.error("Could not download backing track.")
-                backing_path = None
+                backing_path = track_path
+
+            if backing_path:
+                output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[1:a]volume=0.8[voice];[0:a][voice]amix=inputs=2:duration=longest' -y {output_path}"
+                try:
+                    subprocess.run(cmd, shell=True, check=True, capture_output=True)
+                    st.success(get_text("mix_success"))
+                    with open(output_path, "rb") as f:
+                        mixed_bytes = f.read()
+                        b64 = base64.b64encode(mixed_bytes).decode()
+                        st.session_state.mixed_audio_bytes = mixed_bytes
+                        st.markdown(f'<audio controls src="data:audio/mp3;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
+                        st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
+                except subprocess.CalledProcessError as e:
+                    st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
+                finally:
+                    os.unlink(voice_wav.name)
+                    if is_demo and backing_path:
+                        os.unlink(backing_path)
         else:
-            backing_path = track_path
-
-        if backing_path:
-            output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-            cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[1:a]volume=0.8[voice];[0:a][voice]amix=inputs=2:duration=longest' -y {output_path}"
-            try:
-                subprocess.run(cmd, shell=True, check=True, capture_output=True)
-                st.success(get_text("mix_success"))
-                with open(output_path, "rb") as f:
-                    mixed_bytes = f.read()
-                    b64 = base64.b64encode(mixed_bytes).decode()
-                    st.session_state.mixed_audio_bytes = mixed_bytes  # Store for effects processing
-                    st.session_state.mixed_audio_path = output_path
-                    
-                    # Display the mixed audio player
-                    st.markdown(f'<audio controls src="data:audio/mp3;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
-                    
-                    # Provide direct download of the mixed track (without effects)
-                    st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
-            except subprocess.CalledProcessError as e:
-                st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
-            finally:
-                os.unlink(voice_wav.name)
-                if is_demo and backing_path:
-                    os.unlink(backing_path)
+            st.warning("No audio captured. Please click the microphone button and record something.")
 else:
-    st.info("Click the 'Start Recording' button in the WebRTC widget above to begin singing. Use headphones to avoid echo.")
-
+    st.info("Waiting for recorder to initialize... Click the microphone button when it appears.")
 
 # ------------------------------
-# STUDIO EFFECTS SECTION
+# STUDIO EFFECTS SECTION (unchanged)
 # ------------------------------
 if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_bytes:
     st.markdown("---")
     st.markdown(f"<h3 style='color: #764ba2;'>{get_text('effects_title')}</h3>", unsafe_allow_html=True)
     st.markdown(get_text("effects_instruction"))
 
-    # Load the mixed audio as a numpy array for processing
     audio_data, sample_rate = sf.read(io.BytesIO(st.session_state.mixed_audio_bytes))
     
-    # Effect controls
     st.markdown("#### 🎚️ 3-Band EQ")
     col1, col2, col3 = st.columns(3)
     with col1:
-        bass_gain = st.slider("Bass Gain (dB)", -12.0, 12.0, 0.0, 0.1, key="bass_gain")
+        bass_gain = st.slider("Bass Gain (dB)", -12.0, 12.0, 0.0, 0.1)
     with col2:
-        mid_gain = st.slider("Mid Gain (dB)", -12.0, 12.0, 0.0, 0.1, key="mid_gain")
+        mid_gain = st.slider("Mid Gain (dB)", -12.0, 12.0, 0.0, 0.1)
     with col3:
-        treble_gain = st.slider("Treble Gain (dB)", -12.0, 12.0, 0.0, 0.1, key="treble_gain")
+        treble_gain = st.slider("Treble Gain (dB)", -12.0, 12.0, 0.0, 0.1)
 
     st.markdown("#### 📢 Compressor")
-    compress_amount = st.slider("Compression Amount", 0.0, 1.0, 0.0, 0.01, key="compress_amount")
-    
+    compress_amount = st.slider("Compression Amount", 0.0, 1.0, 0.0, 0.01)
     st.markdown("#### 🎸 Reverb")
-    reverb_size = st.slider("Room Size", 0.0, 1.0, 0.0, 0.01, key="reverb_size")
-    
+    reverb_size = st.slider("Room Size", 0.0, 1.0, 0.0, 0.01)
     st.markdown("#### 🎤 Pitch Correction (Auto-Tune)")
-    pitch_amount = st.slider("Pitch Amount (semitones)", -12, 12, 0, 1, key="pitch_amount")
-    
-    # Apply effects when the user clicks the button
+    pitch_amount = st.slider("Pitch Amount (semitones)", -12, 12, 0, 1)
+
     if st.button(get_text("apply_effects_btn"), use_container_width=True):
         with st.spinner("Applying studio effects..."):
-            # Create a pedalboard instance
             board = pb.Pedalboard([])
-            
-            # Add EQ (using a simple low-shelf and high-shelf filter approximation)
             if bass_gain != 0:
                 board.append(pb.LowShelfFilter(cutoff_frequency_hz=200, gain_db=bass_gain, q=0.7))
             if mid_gain != 0:
                 board.append(pb.PeakFilter(cutoff_frequency_hz=2000, gain_db=mid_gain, q=0.7))
             if treble_gain != 0:
                 board.append(pb.HighShelfFilter(cutoff_frequency_hz=4000, gain_db=treble_gain, q=0.7))
-            
-            # Add Compressor (simulated with a simple gain reduction)
             if compress_amount > 0:
                 ratio = 1 + (compress_amount * 7)
                 threshold_db = -12 * compress_amount
                 board.append(pb.Compressor(threshold_db=threshold_db, ratio=ratio, attack_ms=10, release_ms=100))
-            
-            # Add Reverb
             if reverb_size > 0:
                 room_size = 0.1 + (reverb_size * 0.8)
                 board.append(pb.Reverb(room_size=room_size, damping=0.5, wet_level=reverb_size, dry_level=1.0 - reverb_size, width=1.0))
-            
-            # Add Pitch Shift (subtle Auto-Tune effect)
             if pitch_amount != 0:
                 board.append(pb.PitchShift(semitones=pitch_amount))
-            
-            # Process the audio
             if board:
                 processed_audio = board(audio_data, sample_rate)
             else:
                 processed_audio = audio_data
-            
-            # Convert back to MP3 for download
             output_mp3 = io.BytesIO()
             sf.write(output_mp3, processed_audio, sample_rate, format='mp3')
             output_mp3.seek(0)
             final_bytes = output_mp3.read()
             final_b64 = base64.b64encode(final_bytes).decode()
-            
             st.success(get_text("effects_applied"))
             st.markdown(f'<audio controls src="data:audio/mp3;base64,{final_b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
