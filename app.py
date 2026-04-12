@@ -13,7 +13,7 @@ import soundfile as sf
 import io
 
 # ------------------------------
-# PAGE CONFIG & LOGIN (same as before)
+# PAGE CONFIG & LOGIN
 # ------------------------------
 st.set_page_config(page_title="Music Studio Pro", layout="wide")
 
@@ -93,7 +93,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------
-# LANGUAGE (simplified fallback)
+# LANGUAGE
 # ------------------------------
 LANGUAGES = {"English":"en","Español":"es","Français":"fr","Kreyòl Ayisyen":"ht"}
 TEXTS = {
@@ -107,8 +107,7 @@ TEXTS = {
         "download_ready": "Download ready! Click the button below to save the file.",
         "contact": "📞 To get the purchase password, contact us on WhatsApp or email.",
         "track_info": "🎧 Preview only – full MP3 download after unlocking.",
-        "demo_track_name": "Demo Track (SoundHelix)",
-        "no_tracks": "No tracks found. Add MP3 files to the 'tracks' folder or use the demo track.",
+        "no_tracks": "No user tracks found. Demo tracks are always available.",
         "upload_track": "🎤 Upload Your Own Track (Artist)",
         "upload_btn": "Upload MP3",
         "upload_success": "✅ Track uploaded successfully! Refresh the page to see it in the list.",
@@ -144,11 +143,12 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS MANAGEMENT
+# TRACKS MANAGEMENT (20 demo tracks + user uploads)
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 
+# Upload new track
 with st.expander("🎤 " + get_text("upload_track")):
     uploaded_file = st.file_uploader("", type=["mp3"], label_visibility="collapsed")
     if uploaded_file is not None:
@@ -158,26 +158,31 @@ with st.expander("🎤 " + get_text("upload_track")):
         st.success(get_text("upload_success"))
         st.rerun()
 
-track_files = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
-DEMO_MP3_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-DEMO_TRACK_NAME = get_text("demo_track_name")
+# 20 demo tracks from SoundHelix (royalty-free)
+DEMO_URLS = [f"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-{i}.mp3" for i in range(1, 21)]
+DEMO_NAMES = [f"Demo Track {i}" for i in range(1, 21)]
 
-if not track_files:
+# User-uploaded tracks
+user_tracks = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
+
+# Combine: demos first, then user tracks
+all_track_names = DEMO_NAMES + user_tracks
+all_track_is_demo = [True] * len(DEMO_NAMES) + [False] * len(user_tracks)
+all_track_url_or_path = DEMO_URLS + [os.path.join(TRACKS_DIR, f) for f in user_tracks]
+
+if not user_tracks:
     st.info(get_text("no_tracks"))
-    track_list = [DEMO_TRACK_NAME]
-    is_demo = True
-else:
-    track_list = track_files
-    is_demo = False
 
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
-selected_track = st.selectbox("", track_list, label_visibility="collapsed")
+selected_index = st.selectbox("", range(len(all_track_names)), format_func=lambda i: all_track_names[i], label_visibility="collapsed")
+selected_track_name = all_track_names[selected_index]
+is_demo = all_track_is_demo[selected_index]
+track_source = all_track_url_or_path[selected_index]
 
 if is_demo:
-    st.audio(DEMO_MP3_URL, format="audio/mp3")
+    st.audio(track_source, format="audio/mp3")
 else:
-    track_path = os.path.join(TRACKS_DIR, selected_track)
-    st.audio(track_path, format="audio/mp3")
+    st.audio(track_source, format="audio/mp3")
 
 # ------------------------------
 # UNLOCK & DOWNLOAD
@@ -194,24 +199,23 @@ if st.button(get_text("unlock_btn"), use_container_width=True):
         st.error(get_text("wrong_password"))
 
 if st.session_state.purchase_unlocked:
-    if is_demo:
-        try:
-            response = requests.get(DEMO_MP3_URL)
+    try:
+        if is_demo:
+            response = requests.get(track_source)
             if response.status_code == 200:
                 audio_bytes = response.content
-                b64 = base64.b64encode(audio_bytes).decode()
-                st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="demo_track.mp3" class="download-btn">📥 {get_text("download_btn")}</a>', unsafe_allow_html=True)
-                st.caption(get_text("download_ready"))
             else:
                 st.error("Demo fetch failed. Use your own tracks.")
-        except:
-            st.error("Demo unavailable. Please upload your own MP3 files.")
-    else:
-        with open(track_path, "rb") as f:
-            audio_bytes = f.read()
+                audio_bytes = None
+        else:
+            with open(track_source, "rb") as f:
+                audio_bytes = f.read()
+        if audio_bytes:
             b64 = base64.b64encode(audio_bytes).decode()
-            st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="{selected_track}" class="download-btn">📥 {get_text("download_btn")}</a>', unsafe_allow_html=True)
+            st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="{selected_track_name}.mp3" class="download-btn">📥 {get_text("download_btn")}</a>', unsafe_allow_html=True)
             st.caption(get_text("download_ready"))
+    except Exception as e:
+        st.error(f"Download error: {e}")
 else:
     st.info("🔒 " + get_text("track_info"))
 
@@ -305,43 +309,11 @@ if voice_file is not None:
 st.caption("Tip: You can record on your phone or computer using any voice recorder, then upload the file here.")
 
 # ------------------------------
-# SING OVER TRACK (FIXED)
+# SING OVER TRACK (WebRTC)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("sing_instruction"))
-
-# Create a simple audio processor that accumulates frames
-class RecordingProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.frames = []
-    def recv(self, frame: av.AudioFrame):
-        self.frames.append(frame.to_ndarray().copy())
-        return frame
-
-# We need to manage recording state manually: webrtc_streamer creates a context, but we can't easily control start/stop from buttons.
-# Instead, we'll use a single webrtc_streamer that is always on, and we use a session state flag to record.
-# But that's complex. Simpler: we'll use the same approach as the voice recording above (HTML5) but we need to mix with backing track.
-# Actually the HTML5 recorder gives a WAV blob, we can then use that as the voice file. That's easier and works.
-# So we can reuse the HTML5 recorder for singing as well. But the user asked for "sing over track", meaning record while the backing plays.
-# The HTML5 recorder can record while the user plays the backing track in another tab? Not ideal.
-# Let's keep the webrtc approach but fix the UI.
-
-# We'll display a webrtc_streamer with a visible audio element and provide Start/Stop buttons that control the stream.
-# The webrtc_streamer automatically starts when the page loads; we need to start recording programmatically. Not possible.
-# Alternative: Use the webrtc_streamer's built-in "Start" button (the microphone icon). The user must click that.
-# Then we provide a "Stop & Mix" button that reads the accumulated frames.
-
-# To make it obvious, we'll place the webrtc_streamer inside an expander and give clear instructions.
-
-with st.expander("🎤 Click here to open the recorder", expanded=True):
-    st.markdown("**1. Click the microphone button below to start recording.**")
-    st.markdown("**2. Sing along with the backing track (play it in the player above).**")
-    st.markdown("**3. Click 'Stop Recording' on the recorder, then click the 'Stop & Mix' button.**")
-
-# Create a session state to store recorded frames
-if "recorded_frames" not in st.session_state:
-    st.session_state.recorded_frames = None
 
 class SingProcessor(AudioProcessorBase):
     def __init__(self):
@@ -360,12 +332,10 @@ webrtc_ctx = webrtc_streamer(
 )
 
 if webrtc_ctx.audio_processor:
-    # Store frames periodically? We'll just use the button to capture.
     if st.button(get_text("stop_sing_rec")):
         frames = webrtc_ctx.audio_processor.frames
         if frames:
             audio_data = np.concatenate(frames, axis=0)
-            # Save as WAV
             voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
             with wave.open(voice_wav.name, 'wb') as wf:
                 wf.setnchannels(1)
@@ -374,9 +344,9 @@ if webrtc_ctx.audio_processor:
                 wf.writeframes((audio_data * 32767).astype(np.int16).tobytes())
             st.success(get_text("sing_recording_saved"))
 
-            # Get backing track
+            # Get backing track file
             if is_demo:
-                resp = requests.get(DEMO_MP3_URL)
+                resp = requests.get(track_source)
                 if resp.status_code == 200:
                     backing_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
                     with open(backing_path, "wb") as f:
@@ -385,7 +355,7 @@ if webrtc_ctx.audio_processor:
                     st.error("Could not download backing track.")
                     backing_path = None
             else:
-                backing_path = track_path
+                backing_path = track_source
 
             if backing_path:
                 output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
@@ -411,7 +381,7 @@ else:
     st.info("Waiting for recorder to initialize... Click the microphone button when it appears.")
 
 # ------------------------------
-# STUDIO EFFECTS SECTION (unchanged)
+# STUDIO EFFECTS
 # ------------------------------
 if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_bytes:
     st.markdown("---")
