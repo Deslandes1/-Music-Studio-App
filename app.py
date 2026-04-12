@@ -9,6 +9,10 @@ import numpy as np
 from pathlib import Path
 from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
 import av
+import pedalboard as pb
+import librosa
+import soundfile as sf
+import io
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -58,6 +62,7 @@ st.markdown("""
     .unlock-section { background: linear-gradient(135deg, #667eea, #764ba2); padding: 1.5rem; border-radius: 20px; margin: 1rem 0; color: white; }
     .download-btn { background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; display: inline-block; }
     .footer { text-align: center; color: #666; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
+    .effect-slider { margin-bottom: 1rem; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -135,7 +140,11 @@ TEXTS = {
         "sing_recording_saved": "✅ Voice recorded! Mixing with backing track...",
         "mix_success": "✅ Mixed track ready! Download below.",
         "mix_error": "Mixing failed. Make sure ffmpeg is installed.",
-        "download_mixed": "📥 Download Mixed Track (Backing + Voice)"
+        "download_mixed": "📥 Download Mixed Track (Backing + Voice)",
+        "effects_title": "🎛️ Studio Effects",
+        "effects_instruction": "Adjust the knobs below to apply professional effects to your mixed track.",
+        "apply_effects_btn": "🎛️ Apply Effects & Download",
+        "effects_applied": "✅ Effects applied! Download your final track below."
     },
     # For other languages we fall back to English, so we leave them empty or minimal.
     "es": {},
@@ -374,8 +383,14 @@ if webrtc_ctx.audio_processor:
                 with open(output_path, "rb") as f:
                     mixed_bytes = f.read()
                     b64 = base64.b64encode(mixed_bytes).decode()
+                    st.session_state.mixed_audio_bytes = mixed_bytes  # Store for effects processing
+                    st.session_state.mixed_audio_path = output_path
+                    
+                    # Display the mixed audio player
+                    st.markdown(f'<audio controls src="data:audio/mp3;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
+                    
+                    # Provide direct download of the mixed track (without effects)
                     st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
-                os.unlink(output_path)
             except subprocess.CalledProcessError as e:
                 st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
             finally:
@@ -384,6 +399,88 @@ if webrtc_ctx.audio_processor:
                     os.unlink(backing_path)
 else:
     st.info("Click the 'Start Recording' button in the WebRTC widget above to begin singing. Use headphones to avoid echo.")
+
+
+# ------------------------------
+# STUDIO EFFECTS SECTION
+# ------------------------------
+if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_bytes:
+    st.markdown("---")
+    st.markdown(f"<h3 style='color: #764ba2;'>{get_text('effects_title')}</h3>", unsafe_allow_html=True)
+    st.markdown(get_text("effects_instruction"))
+
+    # Load the mixed audio as a numpy array for processing
+    audio_data, sample_rate = sf.read(io.BytesIO(st.session_state.mixed_audio_bytes))
+    
+    # Effect controls
+    st.markdown("#### 🎚️ 3-Band EQ")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        bass_gain = st.slider("Bass Gain (dB)", -12.0, 12.0, 0.0, 0.1, key="bass_gain")
+    with col2:
+        mid_gain = st.slider("Mid Gain (dB)", -12.0, 12.0, 0.0, 0.1, key="mid_gain")
+    with col3:
+        treble_gain = st.slider("Treble Gain (dB)", -12.0, 12.0, 0.0, 0.1, key="treble_gain")
+
+    st.markdown("#### 📢 Compressor")
+    compress_amount = st.slider("Compression Amount", 0.0, 1.0, 0.0, 0.01, key="compress_amount")
+    
+    st.markdown("#### 🎸 Reverb")
+    reverb_size = st.slider("Room Size", 0.0, 1.0, 0.0, 0.01, key="reverb_size")
+    
+    st.markdown("#### 🎤 Pitch Correction (Auto-Tune)")
+    pitch_amount = st.slider("Pitch Amount (semitones)", -12, 12, 0, 1, key="pitch_amount")
+    
+    # Apply effects when the user clicks the button
+    if st.button(get_text("apply_effects_btn"), use_container_width=True):
+        with st.spinner("Applying studio effects..."):
+            # Create a pedalboard instance
+            board = pb.Pedalboard([])
+            
+            # Add EQ (using a simple low-shelf and high-shelf filter approximation)
+            if bass_gain != 0:
+                # Using a Low Shelf filter for bass frequencies (200 Hz)
+                board.append(pb.LowShelfFilter(cutoff_frequency_hz=200, gain_db=bass_gain, q=0.7))
+            if mid_gain != 0:
+                # Using a Peak filter for mid frequencies (2000 Hz)
+                board.append(pb.PeakFilter(cutoff_frequency_hz=2000, gain_db=mid_gain, q=0.7))
+            if treble_gain != 0:
+                # Using a High Shelf filter for treble frequencies (4000 Hz)
+                board.append(pb.HighShelfFilter(cutoff_frequency_hz=4000, gain_db=treble_gain, q=0.7))
+            
+            # Add Compressor (simulated with a simple gain reduction)
+            if compress_amount > 0:
+                # Map compress_amount to ratio (e.g., 1:1 to 8:1) and threshold
+                ratio = 1 + (compress_amount * 7)
+                threshold_db = -12 * compress_amount
+                board.append(pb.Compressor(threshold_db=threshold_db, ratio=ratio, attack_ms=10, release_ms=100))
+            
+            # Add Reverb
+            if reverb_size > 0:
+                # Map reverb_size to room size (0.1 to 0.9)
+                room_size = 0.1 + (reverb_size * 0.8)
+                board.append(pb.Reverb(room_size=room_size, damping=0.5, wet_level=reverb_size, dry_level=1.0 - reverb_size, width=1.0))
+            
+            # Add Pitch Shift (subtle Auto-Tune effect)
+            if pitch_amount != 0:
+                board.append(pb.PitchShift(semitones=pitch_amount))
+            
+            # Process the audio
+            if board:
+                processed_audio = board(audio_data, sample_rate)
+            else:
+                processed_audio = audio_data
+            
+            # Convert back to MP3 for download
+            output_mp3 = io.BytesIO()
+            sf.write(output_mp3, processed_audio, sample_rate, format='mp3')
+            output_mp3.seek(0)
+            final_bytes = output_mp3.read()
+            final_b64 = base64.b64encode(final_bytes).decode()
+            
+            st.success(get_text("effects_applied"))
+            st.markdown(f'<audio controls src="data:audio/mp3;base64,{final_b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
+            st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
 # FOOTER
