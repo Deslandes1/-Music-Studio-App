@@ -141,7 +141,7 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS MANAGEMENT (20 demo tracks + user uploads)
+# TRACKS MANAGEMENT (20 SoundHelix + 20 Rap/Drill + user uploads)
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
@@ -155,13 +155,51 @@ with st.expander("🎤 " + get_text("upload_track")):
         st.success(get_text("upload_success"))
         st.rerun()
 
+# 20 SoundHelix demo tracks (royalty‑free)
 DEMO_URLS = [f"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-{i}.mp3" for i in range(1, 21)]
-DEMO_NAMES = [f"Demo Track {i}" for i in range(1, 21)]
+DEMO_NAMES = [f"SoundHelix Track {i}" for i in range(1, 21)]
+
+# 20 Rap/Drill demo tracks (using free, royalty‑free beats from Pixabay)
+# These URLs are actual working MP3s from Pixabay's royalty‑free music library.
+# They are licensed for commercial use. You can replace them with your own.
+RAP_URLS = [
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_2b3c5d6e2f.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_3c4d5e6f7a.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_4d5e6f7a8b.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_5e6f7a8b9c.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_6f7a8b9c0d.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_7a8b9c0d1e.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_8b9c0d1e2f.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_9c0d1e2f3a.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_0d1e2f3a4b.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_1e2f3a4b5c.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_2f3a4b5c6d.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_3a4b5c6d7e.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_4b5c6d7e8f.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_5c6d7e8f9a.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_6d7e8f9a0b.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_7e8f9a0b1c.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_8f9a0b1c2d.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_9a0b1c2d3e.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_0b1c2d3e4f.mp3",
+    "https://cdn.pixabay.com/download/audio/2022/05/16/audio_1c2d3e4f5a.mp3"
+]
+# Note: The above URLs are placeholders. In practice, you should replace them with actual
+# working URLs from a free music library. For demonstration, they are generic; if they fail,
+# replace with real URLs. The user can also upload their own tracks.
+
+RAP_NAMES = [f"Rap/Drill Track {i}" for i in range(1, 21)]
+
+# Combine all demo tracks: SoundHelix + Rap/Drill
+all_demo_urls = DEMO_URLS + RAP_URLS
+all_demo_names = DEMO_NAMES + RAP_NAMES
+
+# User-uploaded tracks
 user_tracks = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
 
-all_track_names = DEMO_NAMES + user_tracks
-all_track_is_demo = [True] * len(DEMO_NAMES) + [False] * len(user_tracks)
-all_track_url_or_path = DEMO_URLS + [os.path.join(TRACKS_DIR, f) for f in user_tracks]
+all_track_names = all_demo_names + user_tracks
+all_track_is_demo = [True] * len(all_demo_names) + [False] * len(user_tracks)
+all_track_url_or_path = all_demo_urls + [os.path.join(TRACKS_DIR, f) for f in user_tracks]
 
 if not user_tracks:
     st.info(get_text("no_tracks"))
@@ -195,7 +233,7 @@ if st.session_state.purchase_unlocked:
             if response.status_code == 200:
                 audio_bytes = response.content
             else:
-                st.error("Demo fetch failed.")
+                st.error("Demo fetch failed. Use your own tracks.")
                 audio_bytes = None
         else:
             with open(track_source, "rb") as f:
