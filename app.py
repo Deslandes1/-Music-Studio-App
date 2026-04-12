@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import base64
 import requests
+from pathlib import Path
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -161,7 +162,10 @@ TEXTS = {
         "contact": "📞 To get the purchase password, contact us on WhatsApp or email.",
         "track_info": "🎧 Preview only – full MP3 download after unlocking.",
         "demo_track_name": "Demo Track (SoundHelix)",
-        "no_tracks": "No tracks found. Add MP3 files to the 'tracks' folder or use the demo track."
+        "no_tracks": "No tracks found. Add MP3 files to the 'tracks' folder or use the demo track.",
+        "upload_track": "🎤 Upload Your Own Track (Artist)",
+        "upload_btn": "Upload MP3",
+        "upload_success": "✅ Track uploaded successfully! Refresh the page to see it in the list."
     },
     "es": {
         "select_track": "🎵 Selecciona una pista",
@@ -174,7 +178,10 @@ TEXTS = {
         "contact": "📞 Para obtener la contraseña de compra, contáctenos por WhatsApp o email.",
         "track_info": "🎧 Solo vista previa – descarga completa después de desbloquear.",
         "demo_track_name": "Pista de demostración (SoundHelix)",
-        "no_tracks": "No se encontraron pistas. Agrega archivos MP3 a la carpeta 'tracks' o usa la pista de demostración."
+        "no_tracks": "No se encontraron pistas. Agrega archivos MP3 a la carpeta 'tracks' o usa la pista de demostración.",
+        "upload_track": "🎤 Sube tu propia pista (Artista)",
+        "upload_btn": "Subir MP3",
+        "upload_success": "✅ ¡Pista subida con éxito! Actualiza la página para verla en la lista."
     },
     "fr": {
         "select_track": "🎵 Choisissez un morceau",
@@ -187,7 +194,10 @@ TEXTS = {
         "contact": "📞 Pour obtenir le mot de passe d'achat, contactez-nous par WhatsApp ou email.",
         "track_info": "🎧 Aperçu seulement – téléchargement complet après déverrouillage.",
         "demo_track_name": "Morceau de démonstration (SoundHelix)",
-        "no_tracks": "Aucun morceau trouvé. Ajoutez des fichiers MP3 dans le dossier 'tracks' ou utilisez le morceau de démonstration."
+        "no_tracks": "Aucun morceau trouvé. Ajoutez des fichiers MP3 dans le dossier 'tracks' ou utilisez le morceau de démonstration.",
+        "upload_track": "🎤 Téléchargez votre propre morceau (Artiste)",
+        "upload_btn": "Télécharger MP3",
+        "upload_success": "✅ Morceau téléchargé avec succès ! Actualisez la page pour le voir dans la liste."
     },
     "ht": {
         "select_track": "🎵 Chwazi yon mòso",
@@ -200,7 +210,10 @@ TEXTS = {
         "contact": "📞 Pou jwenn modpas acha a, kontakte nou sou WhatsApp oswa imèl.",
         "track_info": "🎧 Apèsi selman – telechajman konplè apre deklannchman.",
         "demo_track_name": "Mòso demonstrasyon (SoundHelix)",
-        "no_tracks": "Pa gen mòso. Ajoute fichye MP3 nan dosye 'tracks' oswa itilize mòso demonstrasyon an."
+        "no_tracks": "Pa gen mòso. Ajoute fichye MP3 nan dosye 'tracks' oswa itilize mòso demonstrasyon an.",
+        "upload_track": "🎤 Telechaje pwòp mòso ou (Atis)",
+        "upload_btn": "Telechaje MP3",
+        "upload_success": "✅ Mòso telechaje avèk siksè! Rafrechi paj la pou wè li nan lis la."
     }
 }
 
@@ -218,6 +231,18 @@ st.session_state["language"] = LANGUAGES[lang_choice]
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 
+# Upload new track (artist/admin)
+with st.expander("🎤 " + get_text("upload_track")):
+    uploaded_file = st.file_uploader("", type=["mp3"], label_visibility="collapsed")
+    if uploaded_file is not None:
+        # Save the file
+        file_path = os.path.join(TRACKS_DIR, uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        st.success(get_text("upload_success"))
+        st.rerun()
+
+# Get track list
 track_files = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
 DEMO_MP3_URL = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
 DEMO_TRACK_NAME = get_text("demo_track_name")
