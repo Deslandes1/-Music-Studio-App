@@ -121,7 +121,8 @@ TEXTS = {
         "track_name_label": "Track name (without extension):",
         "track_saved": "✅ Track saved to the library! Refresh the track list.",
         "sing_over_title": "🎤 Sing Over Track (Record Voice + Backing)",
-        "sing_instruction": "Select a backing track, then record your voice. The app will mix them.",
+        "sing_instruction": "Select a backing track, then record your voice. Use the slider to control backing volume (lower to make your voice louder).",
+        "backing_volume_label": "🔊 Backing Track Volume (0=silent, 1=normal, 2=double)",
         "start_sing_rec": "🔴 Start Recording Voice",
         "stop_sing_rec": "⏹️ Stop & Mix with Backing",
         "sing_recording_saved": "✅ Voice recorded! Mixing with backing track...",
@@ -309,7 +310,7 @@ if voice_file is not None:
 st.caption("Tip: You can record on your phone or computer using any voice recorder, then upload the file here.")
 
 # ------------------------------
-# SING OVER TRACK (WebRTC)
+# SING OVER TRACK (WebRTC) with Backing Volume Control
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
@@ -332,6 +333,12 @@ webrtc_ctx = webrtc_streamer(
 )
 
 if webrtc_ctx.audio_processor:
+    # Backing volume slider
+    backing_volume = st.slider(
+        get_text("backing_volume_label"),
+        min_value=0.0, max_value=2.0, value=1.0, step=0.05,
+        help="Lower volume to make your voice louder; increase to make backing track dominate."
+    )
     if st.button(get_text("stop_sing_rec")):
         frames = webrtc_ctx.audio_processor.frames
         if frames:
@@ -359,7 +366,8 @@ if webrtc_ctx.audio_processor:
 
             if backing_path:
                 output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-                cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[1:a]volume=0.8[voice];[0:a][voice]amix=inputs=2:duration=longest' -y {output_path}"
+                # Mix: adjust backing volume, keep voice at original volume
+                cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[0:a]volume={backing_volume}[backing];[1:a][backing]amix=inputs=2:duration=longest' -y {output_path}"
                 try:
                     subprocess.run(cmd, shell=True, check=True, capture_output=True)
                     st.success(get_text("mix_success"))
