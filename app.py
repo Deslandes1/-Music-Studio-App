@@ -6,11 +6,9 @@ import tempfile
 import subprocess
 import wave
 import numpy as np
-from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
-import av
+import io
 import pedalboard as pb
 import soundfile as sf
-import io
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -121,10 +119,10 @@ TEXTS = {
         "track_name_label": "Track name (without extension):",
         "track_saved": "✅ Track saved to the library! Refresh the track list.",
         "sing_over_title": "🎤 Sing Over Track (Record Voice + Backing)",
-        "sing_instruction": "Select a backing track, then record your voice. Use the slider to control backing volume (lower to make your voice louder).",
+        "sing_instruction": "Select a backing track, then record your voice using the recorder above. Use the slider to control backing volume (lower to make your voice louder).",
         "backing_volume_label": "🔊 Backing Track Volume (0=silent, 1=normal, 2=double)",
-        "stop_sing_rec": "⏹️ Stop & Mix with Backing",
-        "sing_recording_saved": "✅ Voice recorded! Mixing with backing track...",
+        "mix_with_recording": "🎤 Use Last Voice Recording to Mix",
+        "no_recording_found": "No voice recording found. Please record your voice using the recorder above first.",
         "mix_success": "✅ Mixed track ready! Download below.",
         "mix_error": "Mixing failed. Make sure ffmpeg is installed.",
         "download_mixed": "📥 Download Mixed Track",
@@ -148,7 +146,6 @@ st.session_state["language"] = LANGUAGES[lang_choice]
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 
-# Upload new track
 with st.expander("🎤 " + get_text("upload_track")):
     uploaded_file = st.file_uploader("", type=["mp3"], label_visibility="collapsed")
     if uploaded_file is not None:
@@ -158,14 +155,10 @@ with st.expander("🎤 " + get_text("upload_track")):
         st.success(get_text("upload_success"))
         st.rerun()
 
-# 20 demo tracks from SoundHelix (royalty-free)
 DEMO_URLS = [f"https://www.soundhelix.com/examples/mp3/SoundHelix-Song-{i}.mp3" for i in range(1, 21)]
 DEMO_NAMES = [f"Demo Track {i}" for i in range(1, 21)]
-
-# User-uploaded tracks
 user_tracks = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
 
-# Combine: demos first, then user tracks
 all_track_names = DEMO_NAMES + user_tracks
 all_track_is_demo = [True] * len(DEMO_NAMES) + [False] * len(user_tracks)
 all_track_url_or_path = DEMO_URLS + [os.path.join(TRACKS_DIR, f) for f in user_tracks]
@@ -179,7 +172,6 @@ selected_track_name = all_track_names[selected_index]
 is_demo = all_track_is_demo[selected_index]
 track_source = all_track_url_or_path[selected_index]
 
-# Display audio player for the selected track
 st.audio(track_source, format="audio/mp3")
 
 # ------------------------------
@@ -203,7 +195,7 @@ if st.session_state.purchase_unlocked:
             if response.status_code == 200:
                 audio_bytes = response.content
             else:
-                st.error("Demo fetch failed. Use your own tracks.")
+                st.error("Demo fetch failed.")
                 audio_bytes = None
         else:
             with open(track_source, "rb") as f:
@@ -220,7 +212,7 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (HTML5)
+# VOICE RECORDING (HTML5) – working recorder
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
@@ -292,99 +284,65 @@ recorder_html = """
 st.components.v1.html(recorder_html, height=200)
 
 st.markdown("### 🎤 Alternative: Upload a pre‑recorded voice file")
-voice_file = st.file_uploader("Upload your voice recording (WAV, MP3)", type=["wav", "mp3"])
+voice_file = st.file_uploader("Upload your voice recording (WAV, MP3)", type=["wav", "mp3"], key="voice_upload_sing")
 if voice_file is not None:
-    track_name = st.text_input("Name your recording (to save as a track)", value="my_voice")
-    if st.button("Save as Track"):
-        if track_name:
-            if not (track_name.endswith(".wav") or track_name.endswith(".mp3")):
-                track_name += ".wav" if voice_file.type == "audio/wav" else ".mp3"
-            save_path = os.path.join(TRACKS_DIR, track_name)
-            with open(save_path, "wb") as f:
-                f.write(voice_file.getbuffer())
-            st.success(f"Track saved as {track_name}. Refresh to see it in the list.")
-            st.rerun()
-st.caption("Tip: You can record on your phone or computer using any voice recorder, then upload the file here.")
+    st.session_state.voice_bytes = voice_file.getvalue()
+    st.success("Voice file loaded. You can now mix it with the backing track.")
 
 # ------------------------------
-# SING OVER TRACK (WebRTC) with Backing Volume Control
+# SING OVER TRACK (using the uploaded voice file)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("sing_instruction"))
 
-class SingProcessor(AudioProcessorBase):
-    def __init__(self):
-        self.frames = []
-    def recv(self, frame: av.AudioFrame):
-        self.frames.append(frame.to_ndarray().copy())
-        return frame
-
-# WebRTC streamer (microphone button will appear)
-webrtc_ctx = webrtc_streamer(
-    key="sing",
-    mode=WebRtcMode.SENDRECV,
-    audio_receiver_size=1024,
-    audio_processor_factory=SingProcessor,
-    media_stream_constraints={"audio": True, "video": False},
-    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+backing_volume = st.slider(
+    get_text("backing_volume_label"),
+    min_value=0.0, max_value=2.0, value=1.0, step=0.05,
+    help="Lower volume to make your voice louder; increase to make backing track dominate."
 )
 
-if webrtc_ctx.audio_processor:
-    # Backing volume slider
-    backing_volume = st.slider(
-        get_text("backing_volume_label"),
-        min_value=0.0, max_value=2.0, value=1.0, step=0.05,
-        help="Lower volume to make your voice louder; increase to make backing track dominate."
-    )
-    if st.button(get_text("stop_sing_rec")):
-        frames = webrtc_ctx.audio_processor.frames
-        if frames:
-            audio_data = np.concatenate(frames, axis=0)
-            voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-            with wave.open(voice_wav.name, 'wb') as wf:
-                wf.setnchannels(1)
-                wf.setsampwidth(2)
-                wf.setframerate(48000)
-                wf.writeframes((audio_data * 32767).astype(np.int16).tobytes())
-            st.success(get_text("sing_recording_saved"))
-
-            # Get backing track file
-            if is_demo:
-                resp = requests.get(track_source)
-                if resp.status_code == 200:
-                    backing_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-                    with open(backing_path, "wb") as f:
-                        f.write(resp.content)
-                else:
-                    st.error("Could not download backing track.")
-                    backing_path = None
+if st.button(get_text("mix_with_recording"), use_container_width=True):
+    if "voice_bytes" not in st.session_state or not st.session_state.voice_bytes:
+        st.warning(get_text("no_recording_found"))
+    else:
+        # Save voice bytes to a temporary file
+        voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        voice_wav.write(st.session_state.voice_bytes)
+        voice_wav.close()
+        # Get backing track file
+        if is_demo:
+            resp = requests.get(track_source)
+            if resp.status_code == 200:
+                backing_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                with open(backing_path, "wb") as f:
+                    f.write(resp.content)
             else:
-                backing_path = track_source
-
-            if backing_path:
-                output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-                # Mix: adjust backing volume, keep voice at original volume
-                cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[0:a]volume={backing_volume}[backing];[1:a][backing]amix=inputs=2:duration=longest' -y {output_path}"
-                try:
-                    subprocess.run(cmd, shell=True, check=True, capture_output=True)
-                    st.success(get_text("mix_success"))
-                    with open(output_path, "rb") as f:
-                        mixed_bytes = f.read()
-                        b64 = base64.b64encode(mixed_bytes).decode()
-                        st.session_state.mixed_audio_bytes = mixed_bytes
-                        st.markdown(f'<audio controls src="data:audio/mp3;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
-                        st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
-                except subprocess.CalledProcessError as e:
-                    st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
-                finally:
-                    os.unlink(voice_wav.name)
-                    if is_demo and backing_path:
-                        os.unlink(backing_path)
+                st.error("Could not download backing track.")
+                backing_path = None
         else:
-            st.warning("No audio captured. Please click the microphone button and record something.")
-else:
-    st.info("Waiting for recorder to initialize... Click the microphone button when it appears.")
+            backing_path = track_source
+
+        if backing_path:
+            output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+            cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[0:a]volume={backing_volume}[backing];[1:a][backing]amix=inputs=2:duration=longest' -y {output_path}"
+            try:
+                subprocess.run(cmd, shell=True, check=True, capture_output=True)
+                st.success(get_text("mix_success"))
+                with open(output_path, "rb") as f:
+                    mixed_bytes = f.read()
+                    b64 = base64.b64encode(mixed_bytes).decode()
+                    st.session_state.mixed_audio_bytes = mixed_bytes
+                    st.markdown(f'<audio controls src="data:audio/mp3;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
+                    st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
+            except subprocess.CalledProcessError as e:
+                st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
+            finally:
+                os.unlink(voice_wav.name)
+                if is_demo and backing_path:
+                    os.unlink(backing_path)
+
+st.caption("Tip: First record your voice using the recorder above, then download it and upload it here (or use the alternative upload). Or use any external voice recording.")
 
 # ------------------------------
 # STUDIO EFFECTS
