@@ -433,7 +433,7 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# ADVANCED MULTI‑TRACK BEAT MAKER
+# FIXED MULTI‑TRACK BEAT MAKER
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
@@ -442,7 +442,7 @@ st.markdown(get_text("beat_instruction"))
 steps = 16
 bpm = st.slider(get_text("bpm_label"), 60, 180, 120, 5)
 
-# Define drum tracks with names and synth parameters
+# Define drum tracks
 tracks = [
     {"name": "Kick", "key": "kick", "freq": 60, "decay": 0.05, "noise": False},
     {"name": "Snare", "key": "snare", "freq": 180, "decay": 0.08, "noise": True},
@@ -452,7 +452,7 @@ tracks = [
     {"name": "Tom", "key": "tom", "freq": 100, "decay": 0.1, "noise": False}
 ]
 
-# Session state for patterns
+# Initialize session state for patterns and volumes
 if "beat_patterns" not in st.session_state:
     st.session_state.beat_patterns = {t["key"]: [False]*steps for t in tracks}
 if "beat_volumes" not in st.session_state:
@@ -473,7 +473,7 @@ for tr in tracks:
         vol = st.slider(get_text("volume"), 0.0, 1.0, st.session_state.beat_volumes[tr["key"]], 0.05, key=f"vol_{tr['key']}")
         st.session_state.beat_volumes[tr["key"]] = vol
 
-# Function to generate a single track's audio
+# Function to generate a single track's audio (fixed envelope)
 def generate_track_audio(pattern, bpm, duration_seconds=8, freq=100, decay=0.05, noise=False):
     sample_rate = 44100
     beat_length = 60 / bpm
@@ -482,13 +482,19 @@ def generate_track_audio(pattern, bpm, duration_seconds=8, freq=100, decay=0.05,
     audio = np.zeros(total_samples, dtype=np.float32)
     
     def envelope(t, attack=0.001, decay_time=decay):
+        # Create envelope: linear attack, exponential decay
         env = np.ones_like(t)
         attack_samples = int(attack * sample_rate)
         if attack_samples > 0:
             env[:attack_samples] = np.linspace(0, 1, attack_samples)
         decay_samples = int(decay_time * sample_rate)
-        if decay_samples > 0 and len(t) > attack_samples:
-            env[attack_samples:attack_samples+decay_samples] = np.linspace(1, 0, decay_samples)
+        if decay_samples > 0:
+            # Ensure we don't exceed array bounds
+            end = min(attack_samples + decay_samples, len(t))
+            if end > attack_samples:
+                env[attack_samples:end] = np.linspace(1, 0, end - attack_samples)
+        # Apply exponential decay for smoother sound
+        env = env * np.exp(-t * 20)  # additional decay
         return env
     
     for step, active in enumerate(pattern):
@@ -498,27 +504,32 @@ def generate_track_audio(pattern, bpm, duration_seconds=8, freq=100, decay=0.05,
         start_sample = int(start_time * sample_rate)
         if start_sample >= total_samples:
             break
-        sound_duration = 0.15  # max length
+        sound_duration = min(0.15, duration_seconds - start_time)
+        if sound_duration <= 0:
+            continue
         end_sample = min(start_sample + int(sound_duration * sample_rate), total_samples)
         t = np.linspace(0, sound_duration, end_sample - start_sample)
         env = envelope(t)
         if noise:
+            # White noise
             tone = np.random.normal(0, 0.5, len(t)) * env
         else:
             tone = np.sin(2 * np.pi * freq * t) * env
         audio[start_sample:end_sample] += tone * 0.5
     return audio, sample_rate
 
-# Play All Tracks button (generate and mix)
+# Play All Tracks button
 if st.button(get_text("play_all")):
     with st.spinner("Generating beat..."):
         mixed_audio = None
         sample_rate = 44100
         duration = 8
+        any_active = False
         for tr in tracks:
             pattern = st.session_state.beat_patterns[tr["key"]]
             vol = st.session_state.beat_volumes[tr["key"]]
             if any(pattern):
+                any_active = True
                 track_audio, sr = generate_track_audio(
                     pattern, bpm, duration,
                     freq=tr["freq"], decay=tr["decay"], noise=tr["noise"]
@@ -530,7 +541,7 @@ if st.button(get_text("play_all")):
                     mixed_audio = np.pad(mixed_audio, (0, max_len - len(mixed_audio)), 'constant')
                     track_audio_pad = np.pad(track_audio, (0, max_len - len(track_audio)), 'constant')
                     mixed_audio += track_audio_pad * vol
-        if mixed_audio is None:
+        if not any_active:
             st.warning("No patterns selected. Please add some steps.")
         else:
             # Normalize
