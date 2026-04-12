@@ -2,7 +2,13 @@ import streamlit as st
 import os
 import base64
 import requests
+import tempfile
+import subprocess
+import wave
+import numpy as np
 from pathlib import Path
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, AudioProcessorBase
+import av
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -58,7 +64,7 @@ st.markdown("""
 st.markdown("""
 <div class="main-header">
     <h1>🎧 Music Studio Pro</h1>
-    <p>Listen, unlock, download, record – your premium music destination</p>
+    <p>Listen, unlock, download, record – and sing over tracks!</p>
 </div>
 """, unsafe_allow_html=True)
 
@@ -66,7 +72,7 @@ col_flag, col_title = st.columns([1, 3])
 with col_flag:
     show_haitian_flag(120)
 with col_title:
-    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks, record your voice, and unlock downloads with a purchase password.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks, upload your own, record voice, and mix your singing with any backing track.</p>", unsafe_allow_html=True)
 
 # ------------------------------
 # SIDEBAR – COMPANY INFO & LOGOUT
@@ -94,7 +100,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------
-# MULTI-LANGUAGE SUPPORT (simplified)
+# MULTI-LANGUAGE SUPPORT (simplified – full translation can be added)
 # ------------------------------
 LANGUAGES = {"English":"en","Español":"es","Français":"fr","Kreyòl Ayisyen":"ht"}
 TEXTS = {
@@ -121,10 +127,18 @@ TEXTS = {
         "download_recording": "📥 Download Recording (WAV)",
         "save_as_track": "💾 Save as a new track",
         "track_name_label": "Track name (without extension):",
-        "track_saved": "✅ Track saved to the library! Refresh the track list."
+        "track_saved": "✅ Track saved to the library! Refresh the track list.",
+        "sing_over_title": "🎤 Sing Over Track (Record Voice + Backing)",
+        "sing_instruction": "Select a backing track, then record your voice while it plays. The app will mix them into a single MP3.",
+        "start_sing_rec": "🔴 Start Singing Recording",
+        "stop_sing_rec": "⏹️ Stop Recording & Mix",
+        "sing_recording_saved": "✅ Voice recorded! Mixing with backing track...",
+        "mix_success": "✅ Mixed track ready! Download below.",
+        "mix_error": "Mixing failed. Make sure ffmpeg is installed.",
+        "download_mixed": "📥 Download Mixed Track (Backing + Voice)"
     }
 }
-def get_text(key): return TEXTS["en"].get(key, key)  # full translation would be added similarly
+def get_text(key): return TEXTS["en"].get(key, key)
 
 lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
@@ -167,7 +181,7 @@ else:
     st.audio(track_path, format="audio/mp3")
 
 # ------------------------------
-# UNLOCK & DOWNLOAD
+# UNLOCK & DOWNLOAD (unchanged)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
@@ -205,14 +219,12 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (JavaScript/HTML5)
+# VOICE RECORDING (original HTML recorder – kept)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("record_instruction"))
 
-# Simple HTML5 audio recorder using MediaRecorder
-# We embed a component that records and returns the base64 WAV data
 recorder_html = """
 <div id="recorder-container">
     <button id="recordBtn" style="background-color:#ff4444; color:white; padding:10px 20px; border:none; border-radius:30px; font-weight:bold;">🔴 Start Recording</button>
@@ -246,7 +258,6 @@ recorder_html = """
                 audioPlayback.src = audioUrl;
                 audioPlayback.style.display = 'block';
                 statusDiv.innerHTML = 'Recording saved! Click "Save Recording" below.';
-                // Send the blob to Streamlit (as base64)
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     const base64data = reader.result.split(',')[1];
@@ -279,24 +290,9 @@ recorder_html = """
 """
 st.components.v1.html(recorder_html, height=200)
 
-# Hidden component to receive the recording data
-recording_data = st.session_state.get("recording_base64", None)
-if "recording_base64" not in st.session_state:
-    st.session_state.recording_base64 = None
-
-# We need to capture the message from the component. Since components can't directly send data back easily, we'll use a simple text input for manual saving.
-# Alternative: use st.file_uploader for existing audio or a separate recording approach.
-
-# For simplicity, I'll add a manual file upload for voice (user can record with external tool and upload)
-# But to make it work seamlessly, I'll use a simpler approach: allow users to upload an existing WAV/MP3 file as a track.
-
-# Since the HTML component's message passing is complex, I'll instead provide a direct file upload for voice recordings.
-# Users can record on their phone/computer and upload the file here.
-
 st.markdown("### 🎤 Alternative: Upload a pre‑recorded voice file")
 voice_file = st.file_uploader("Upload your voice recording (WAV, MP3)", type=["wav", "mp3"])
 if voice_file is not None:
-    # Save it as a track
     track_name = st.text_input("Name your recording (to save as a track)", value="my_voice")
     if st.button("Save as Track"):
         if track_name:
@@ -307,8 +303,78 @@ if voice_file is not None:
                 f.write(voice_file.getbuffer())
             st.success(f"Track saved as {track_name}. Refresh to see it in the list.")
             st.rerun()
-
 st.caption("Tip: You can record on your phone or computer using any voice recorder, then upload the file here.")
+
+# ------------------------------
+# NEW FEATURE: SING OVER TRACK (Record voice + backing track, mix with ffmpeg)
+# ------------------------------
+st.markdown("---")
+st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
+st.markdown(get_text("sing_instruction"))
+
+class AudioRecorder(AudioProcessorBase):
+    def __init__(self):
+        self.audio_frames = []
+    def recv(self, frame: av.AudioFrame):
+        self.audio_frames.append(frame.to_ndarray().copy())
+        return frame
+
+webrtc_ctx = webrtc_streamer(
+    key="sing-over-track",
+    mode=WebRtcMode.SENDRECV,
+    audio_receiver_size=1024,
+    audio_processor_factory=AudioRecorder,
+    media_stream_constraints={"audio": True, "video": False},
+)
+
+if webrtc_ctx.audio_processor:
+    if st.button(get_text("stop_sing_rec")):
+        # Save recorded voice as WAV
+        audio_data = np.concatenate(webrtc_ctx.audio_processor.audio_frames, axis=0)
+        voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        with wave.open(voice_wav.name, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(48000)
+            wf.writeframes((audio_data * 32767).astype(np.int16).tobytes())
+        st.success(get_text("sing_recording_saved"))
+
+        # Get backing track file
+        if is_demo:
+            # Download demo track
+            resp = requests.get(DEMO_MP3_URL)
+            if resp.status_code == 200:
+                backing_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+                with open(backing_path, "wb") as f:
+                    f.write(resp.content)
+            else:
+                st.error("Could not download backing track.")
+                backing_path = None
+        else:
+            backing_path = track_path
+
+        if backing_path:
+            # Mix using ffmpeg
+            output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
+            # Command: mix backing track with voice (voice at 80% volume, adjust as needed)
+            cmd = f"ffmpeg -i {backing_path} -i {voice_wav.name} -filter_complex '[1:a]volume=0.8[voice];[0:a][voice]amix=inputs=2:duration=longest' -y {output_path}"
+            try:
+                subprocess.run(cmd, shell=True, check=True, capture_output=True)
+                st.success(get_text("mix_success"))
+                with open(output_path, "rb") as f:
+                    mixed_bytes = f.read()
+                    b64 = base64.b64encode(mixed_bytes).decode()
+                    st.markdown(f'<a href="data:audio/mp3;base64,{b64}" download="mixed_track.mp3" class="download-btn">📥 {get_text("download_mixed")}</a>', unsafe_allow_html=True)
+                # Clean up
+                os.unlink(output_path)
+            except subprocess.CalledProcessError as e:
+                st.error(f"{get_text('mix_error')}: {e.stderr.decode()}")
+            finally:
+                os.unlink(voice_wav.name)
+                if is_demo and backing_path:
+                    os.unlink(backing_path)
+else:
+    st.info("Click the 'Start Recording' button in the WebRTC widget above to begin singing. Use headphones to avoid echo.")
 
 # ------------------------------
 # FOOTER
