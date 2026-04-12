@@ -133,11 +133,11 @@ TEXTS = {
         "apply_effects_btn": "🎛️ Apply Effects & Download",
         "effects_applied": "✅ Effects applied! Download your final track below.",
         "beat_maker_title": "🥁 Beat Maker (Create Your Own Drum Beat)",
-        "beat_instruction": "Use the step sequencer below to create a simple beat. Each step represents a 16th note (4 steps per beat). Adjust BPM, then play and download as WAV.",
+        "beat_instruction": "Use the step sequencer below to create a simple beat. Each step represents a 16th note (4 steps per beat). Adjust BPM, then click 'Play Beat' to hear it. Then download as WAV.",
         "bpm_label": "Tempo (BPM)",
         "play_beat": "▶️ Play Beat",
         "download_beat": "📥 Download Beat (WAV)",
-        "beat_generated": "Beat generated and ready for download."
+        "beat_generated": "Beat generated. You can play it above and download below."
     },
     "es": {}, "fr": {}, "ht": {}
 }
@@ -438,13 +438,12 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# NEW: BEAT MAKER (Step Sequencer)
+# BEAT MAKER (Step Sequencer) – Fixed to play inline then download
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("beat_instruction"))
 
-# Simple step sequencer: 16 steps, 3 tracks (kick, snare, hi-hat)
 steps = 16
 bpm = st.slider(get_text("bpm_label"), 60, 180, 120, 5)
 
@@ -464,15 +463,14 @@ for i in range(steps):
         snare_pattern.append(snare)
         hihat_pattern.append(hihat)
 
-# Function to generate a simple drum beat using numpy and soundfile
 def generate_beat(kick, snare, hihat, bpm, duration_seconds=8):
     sample_rate = 44100
-    beat_length = 60 / bpm  # seconds per beat
-    step_duration = beat_length / 4  # 16th note (4 steps per beat)
+    beat_length = 60 / bpm
+    step_duration = beat_length / 4
     total_samples = int(sample_rate * duration_seconds)
     audio = np.zeros(total_samples, dtype=np.float32)
     
-    # Load samples (simple synthesized clicks)
+    # Simple synthesized drum sounds
     def make_kick(t):
         return np.sin(2*np.pi*50*t) * np.exp(-t*30) * 0.5
     def make_snare(t):
@@ -502,26 +500,35 @@ def generate_beat(kick, snare, hihat, bpm, duration_seconds=8):
         audio = audio / max_val * 0.8
     return audio, sample_rate
 
+# Store generated beat in session state
+if "generated_beat_audio" not in st.session_state:
+    st.session_state.generated_beat_audio = None
+if "generated_beat_sr" not in st.session_state:
+    st.session_state.generated_beat_sr = None
+
 if st.button(get_text("play_beat")):
     audio, sr = generate_beat(kick_pattern, snare_pattern, hihat_pattern, bpm, duration_seconds=8)
-    # Save to temporary file and play
+    st.session_state.generated_beat_audio = audio
+    st.session_state.generated_beat_sr = sr
+    # Save to temporary WAV and embed audio player
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
         sf.write(tmp.name, audio, sr)
         tmp.seek(0)
         audio_bytes = tmp.read()
         b64 = base64.b64encode(audio_bytes).decode()
         st.markdown(f'<audio controls src="data:audio/wav;base64,{b64}" style="width: 100%;"></audio>', unsafe_allow_html=True)
-        st.session_state.generated_beat = audio_bytes
-        st.success("Beat generated. You can download it below.")
+        st.success(get_text("beat_generated"))
+        # Store bytes for download
+        st.session_state.generated_beat_bytes = audio_bytes
 
 if st.button(get_text("download_beat")):
-    if "generated_beat" in st.session_state and st.session_state.generated_beat:
-        b64 = base64.b64encode(st.session_state.generated_beat).decode()
+    if "generated_beat_bytes" in st.session_state and st.session_state.generated_beat_bytes:
+        b64 = base64.b64encode(st.session_state.generated_beat_bytes).decode()
         st.markdown(f'<a href="data:audio/wav;base64,{b64}" download="my_beat.wav" class="download-btn">📥 {get_text("download_beat")}</a>', unsafe_allow_html=True)
     else:
         st.warning("Generate a beat first by clicking 'Play Beat'.")
 
-st.caption("Tip: Create a rhythm, download it as WAV, then upload it as a track using the 'Upload Your Own Track' section above.")
+st.caption("Tip: Create a rhythm, play it, then download as WAV. You can then upload it as a track using the 'Upload Your Own Track' section above.")
 
 # ------------------------------
 # FOOTER
