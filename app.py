@@ -132,10 +132,9 @@ TEXTS = {
         "apply_effects_btn": "🎛️ Apply Effects & Download",
         "effects_applied": "✅ Effects applied! Download your final track below.",
         "beat_maker_title": "🥁 Multi‑Track Beat Maker",
-        "beat_instruction": "Create patterns for each drum sound. Adjust volume faders, then play all tracks together or individually. Download the mixed beat.",
+        "beat_instruction": "Create patterns for each drum sound. Adjust volume faders, then play all tracks together. Download the mixed beat.",
         "bpm_label": "Tempo (BPM)",
         "play_all": "▶️ Play All Tracks",
-        "stop_all": "⏹️ Stop",
         "download_beat": "📥 Download Mixed Beat (WAV)",
         "track_kick": "Kick",
         "track_snare": "Snare",
@@ -215,7 +214,7 @@ track_source = all_track_url_or_path[selected_index]
 st.audio(track_source, format="audio/mp3")
 
 # ------------------------------
-# UNLOCK & DOWNLOAD (same as before)
+# UNLOCK & DOWNLOAD
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
@@ -252,7 +251,7 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (HTML5) – unchanged
+# VOICE RECORDING (HTML5)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
@@ -330,7 +329,7 @@ if voice_file is not None:
     st.success("Voice file loaded. You can now mix it with the backing track.")
 
 # ------------------------------
-# SING OVER TRACK (unchanged)
+# SING OVER TRACK
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
@@ -376,7 +375,7 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
 st.caption("Tip: First record your voice using the recorder above, then download it and upload it here.")
 
 # ------------------------------
-# STUDIO EFFECTS (unchanged)
+# STUDIO EFFECTS
 # ------------------------------
 if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_bytes:
     st.markdown("---")
@@ -433,7 +432,7 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# FIXED MULTI‑TRACK BEAT MAKER
+# ENHANCED BEAT MAKER (Rich Sounds)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
@@ -442,21 +441,21 @@ st.markdown(get_text("beat_instruction"))
 steps = 16
 bpm = st.slider(get_text("bpm_label"), 60, 180, 120, 5)
 
-# Define drum tracks
+# Define drum tracks with rich synthesis parameters
 tracks = [
-    {"name": "Kick", "key": "kick", "freq": 60, "decay": 0.05, "noise": False},
-    {"name": "Snare", "key": "snare", "freq": 180, "decay": 0.08, "noise": True},
-    {"name": "Hi‑Hat", "key": "hihat", "freq": 800, "decay": 0.02, "noise": False},
-    {"name": "Clap", "key": "clap", "freq": 1200, "decay": 0.04, "noise": True},
-    {"name": "Crash", "key": "crash", "freq": 400, "decay": 0.2, "noise": True},
-    {"name": "Tom", "key": "tom", "freq": 100, "decay": 0.1, "noise": False}
+    {"name": "Kick", "key": "kick", "synthesis": "kick", "vol_default": 1.0},
+    {"name": "Snare", "key": "snare", "synthesis": "snare", "vol_default": 1.0},
+    {"name": "Hi‑Hat", "key": "hihat", "synthesis": "hihat", "vol_default": 0.7},
+    {"name": "Clap", "key": "clap", "synthesis": "clap", "vol_default": 0.8},
+    {"name": "Crash", "key": "crash", "synthesis": "crash", "vol_default": 0.6},
+    {"name": "Tom", "key": "tom", "synthesis": "tom", "vol_default": 0.9}
 ]
 
-# Initialize session state for patterns and volumes
+# Initialize session state
 if "beat_patterns" not in st.session_state:
     st.session_state.beat_patterns = {t["key"]: [False]*steps for t in tracks}
 if "beat_volumes" not in st.session_state:
-    st.session_state.beat_volumes = {t["key"]: 1.0 for t in tracks}
+    st.session_state.beat_volumes = {t["key"]: t["vol_default"] for t in tracks}
 
 # Display step sequencer for each track
 for tr in tracks:
@@ -473,29 +472,48 @@ for tr in tracks:
         vol = st.slider(get_text("volume"), 0.0, 1.0, st.session_state.beat_volumes[tr["key"]], 0.05, key=f"vol_{tr['key']}")
         st.session_state.beat_volumes[tr["key"]] = vol
 
-# Function to generate a single track's audio (fixed envelope)
-def generate_track_audio(pattern, bpm, duration_seconds=8, freq=100, decay=0.05, noise=False):
+# Sound synthesis functions (rich)
+def generate_kick(sample_rate, duration=0.2, freq_start=80, freq_end=40):
+    t = np.linspace(0, duration, int(sample_rate*duration))
+    freq = np.exp(np.linspace(np.log(freq_start), np.log(freq_end), len(t)))
+    tone = np.sin(2*np.pi * freq * t)
+    # Add click
+    click = np.random.normal(0, 0.2, len(t)) * np.exp(-t*100)
+    envelope = np.exp(-t*30)
+    return (tone + click) * envelope * 0.5
+
+def generate_snare(sample_rate, duration=0.15):
+    t = np.linspace(0, duration, int(sample_rate*duration))
+    tone = np.sin(2*np.pi * 200 * t) * np.exp(-t*40)
+    noise = np.random.normal(0, 0.7, len(t)) * np.exp(-t*30)
+    return (tone + noise) * 0.5
+
+def generate_hihat(sample_rate, duration=0.1):
+    t = np.linspace(0, duration, int(sample_rate*duration))
+    noise = np.random.normal(0, 0.5, len(t)) * np.exp(-t*100)
+    return noise * 0.3
+
+def generate_clap(sample_rate, duration=0.1):
+    t = np.linspace(0, duration, int(sample_rate*duration))
+    noise = np.random.normal(0, 0.6, len(t)) * np.exp(-t*50)
+    return noise * 0.4
+
+def generate_crash(sample_rate, duration=0.8):
+    t = np.linspace(0, duration, int(sample_rate*duration))
+    noise = np.random.normal(0, 0.5, len(t)) * np.exp(-t*5)
+    return noise * 0.3
+
+def generate_tom(sample_rate, duration=0.2, freq=120):
+    t = np.linspace(0, duration, int(sample_rate*duration))
+    tone = np.sin(2*np.pi * freq * t) * np.exp(-t*20)
+    return tone * 0.5
+
+def generate_track_audio(pattern, bpm, synthesis_type, duration_seconds=8):
     sample_rate = 44100
     beat_length = 60 / bpm
     step_duration = beat_length / 4
     total_samples = int(sample_rate * duration_seconds)
     audio = np.zeros(total_samples, dtype=np.float32)
-    
-    def envelope(t, attack=0.001, decay_time=decay):
-        # Create envelope: linear attack, exponential decay
-        env = np.ones_like(t)
-        attack_samples = int(attack * sample_rate)
-        if attack_samples > 0:
-            env[:attack_samples] = np.linspace(0, 1, attack_samples)
-        decay_samples = int(decay_time * sample_rate)
-        if decay_samples > 0:
-            # Ensure we don't exceed array bounds
-            end = min(attack_samples + decay_samples, len(t))
-            if end > attack_samples:
-                env[attack_samples:end] = np.linspace(1, 0, end - attack_samples)
-        # Apply exponential decay for smoother sound
-        env = env * np.exp(-t * 20)  # additional decay
-        return env
     
     for step, active in enumerate(pattern):
         if not active:
@@ -504,21 +522,25 @@ def generate_track_audio(pattern, bpm, duration_seconds=8, freq=100, decay=0.05,
         start_sample = int(start_time * sample_rate)
         if start_sample >= total_samples:
             break
-        sound_duration = min(0.15, duration_seconds - start_time)
-        if sound_duration <= 0:
-            continue
-        end_sample = min(start_sample + int(sound_duration * sample_rate), total_samples)
-        t = np.linspace(0, sound_duration, end_sample - start_sample)
-        env = envelope(t)
-        if noise:
-            # White noise
-            tone = np.random.normal(0, 0.5, len(t)) * env
+        if synthesis_type == "kick":
+            sound = generate_kick(sample_rate)
+        elif synthesis_type == "snare":
+            sound = generate_snare(sample_rate)
+        elif synthesis_type == "hihat":
+            sound = generate_hihat(sample_rate)
+        elif synthesis_type == "clap":
+            sound = generate_clap(sample_rate)
+        elif synthesis_type == "crash":
+            sound = generate_crash(sample_rate)
+        elif synthesis_type == "tom":
+            sound = generate_tom(sample_rate)
         else:
-            tone = np.sin(2 * np.pi * freq * t) * env
-        audio[start_sample:end_sample] += tone * 0.5
+            continue
+        end_sample = min(start_sample + len(sound), total_samples)
+        audio[start_sample:end_sample] += sound[:end_sample-start_sample]
     return audio, sample_rate
 
-# Play All Tracks button
+# Play All Tracks
 if st.button(get_text("play_all")):
     with st.spinner("Generating beat..."):
         mixed_audio = None
@@ -530,10 +552,7 @@ if st.button(get_text("play_all")):
             vol = st.session_state.beat_volumes[tr["key"]]
             if any(pattern):
                 any_active = True
-                track_audio, sr = generate_track_audio(
-                    pattern, bpm, duration,
-                    freq=tr["freq"], decay=tr["decay"], noise=tr["noise"]
-                )
+                track_audio, sr = generate_track_audio(pattern, bpm, tr["synthesis"], duration)
                 if mixed_audio is None:
                     mixed_audio = track_audio * vol
                 else:
@@ -548,7 +567,7 @@ if st.button(get_text("play_all")):
             max_val = np.max(np.abs(mixed_audio))
             if max_val > 0:
                 mixed_audio = mixed_audio / max_val * 0.8
-            # Save to temp file and play
+            # Save and play
             with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
                 sf.write(tmp.name, mixed_audio, sample_rate)
                 tmp.seek(0)
@@ -558,7 +577,6 @@ if st.button(get_text("play_all")):
                 st.session_state.generated_beat = audio_bytes
                 st.success("Beat generated. You can download it below.")
 
-# Download button
 if st.button(get_text("download_beat")):
     if "generated_beat" in st.session_state and st.session_state.generated_beat:
         b64 = base64.b64encode(st.session_state.generated_beat).decode()
