@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import base64
-from io import BytesIO
 
 # ------------------------------
 # PAGE CONFIG & LOGIN
@@ -96,7 +95,8 @@ TEXTS = {
         "download_btn": "⬇️ Download Track",
         "download_ready": "Download ready! Click the button below to save the file.",
         "contact": "📞 To get the purchase password, contact us on WhatsApp or email.",
-        "track_info": "🎧 Preview only – full MP3 download after unlocking."
+        "track_info": "🎧 Preview only – full MP3 download after unlocking.",
+        "no_tracks": "No demo tracks found. Please add MP3 files to the 'tracks' folder in the repository."
     },
     "es": {
         "select_track": "🎵 Selecciona una pista",
@@ -107,7 +107,8 @@ TEXTS = {
         "download_btn": "⬇️ Descargar pista",
         "download_ready": "¡Descarga lista! Haz clic en el botón para guardar el archivo.",
         "contact": "📞 Para obtener la contraseña de compra, contáctenos por WhatsApp o email.",
-        "track_info": "🎧 Solo vista previa – descarga completa después de desbloquear."
+        "track_info": "🎧 Solo vista previa – descarga completa después de desbloquear.",
+        "no_tracks": "No se encontraron pistas de demostración. Agregue archivos MP3 a la carpeta 'tracks' en el repositorio."
     },
     "fr": {
         "select_track": "🎵 Choisissez un morceau",
@@ -118,7 +119,8 @@ TEXTS = {
         "download_btn": "⬇️ Télécharger le morceau",
         "download_ready": "Téléchargement prêt ! Cliquez sur le bouton pour enregistrer le fichier.",
         "contact": "📞 Pour obtenir le mot de passe d'achat, contactez-nous par WhatsApp ou email.",
-        "track_info": "🎧 Aperçu seulement – téléchargement complet après déverrouillage."
+        "track_info": "🎧 Aperçu seulement – téléchargement complet après déverrouillage.",
+        "no_tracks": "Aucun morceau de démonstration trouvé. Ajoutez des fichiers MP3 dans le dossier 'tracks' du dépôt."
     },
     "ht": {
         "select_track": "🎵 Chwazi yon mòso",
@@ -129,7 +131,8 @@ TEXTS = {
         "download_btn": "⬇️ Telechaje mòso",
         "download_ready": "Telechajman pare! Klike sou bouton an pou sove fichye a.",
         "contact": "📞 Pou jwenn modpas acha a, kontakte nou sou WhatsApp oswa imèl.",
-        "track_info": "🎧 Apèsi selman – telechajman konplè apre deklannchman."
+        "track_info": "🎧 Apèsi selman – telechajman konplè apre deklannchman.",
+        "no_tracks": "Pa gen mòso demonstrasyon. Ajoute fichye MP3 nan dosye 'tracks' nan depo a."
     }
 }
 
@@ -142,40 +145,27 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS (with a fallback demo track if folder is empty)
+# TRACKS MANAGEMENT
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
 
-# Get list of MP3 files
 track_files = [f for f in os.listdir(TRACKS_DIR) if f.endswith(".mp3")]
-
-# If no tracks, create a silent demo track placeholder
-if not track_files:
-    st.warning("No MP3 files found in the 'tracks' folder. Using a silent demo track to test the interface. Upload your own MP3 files to the 'tracks' folder.")
-    # Create a dummy silent track (base64 encoded silent MP3)
-    dummy_audio = base64.b64decode("//MkxAAuF6sAAAAAASIIIIIIAAAAAAgAAAAAAD//w==")
-    track_files = ["demo_silent_track.mp3"]
-    track_path = BytesIO(dummy_audio)
-    is_dummy = True
-else:
-    is_dummy = False
 
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
 
-if not is_dummy:
+if not track_files:
+    st.warning(get_text("no_tracks"))
+    # Show a placeholder message, no audio player
+    st.info("🎧 Once you upload MP3 files to the 'tracks' folder, they will appear here.")
+else:
     selected_track = st.selectbox("", track_files, label_visibility="collapsed")
     track_path = os.path.join(TRACKS_DIR, selected_track)
-else:
-    selected_track = "demo_silent_track.mp3"
-    # track_path already set
-
-# Audio player (preview)
-st.audio(track_path, format="audio/mp3")
+    st.audio(track_path, format="audio/mp3")
 
 # ------------------------------
-# DOWNLOAD UNLOCK SECTION (ALWAYS VISIBLE)
+# DOWNLOAD UNLOCK SECTION (always visible)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #764ba2;'>⬇️ {get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
@@ -191,10 +181,10 @@ if st.button(get_text("unlock_btn"), use_container_width=True):
         st.session_state.purchase_unlocked = False
         st.error(get_text("wrong_password"))
 
-# Download section
+# Download section (only if tracks exist and unlocked)
 if st.session_state.purchase_unlocked:
-    if is_dummy:
-        st.info("This is a demo track. Upload real MP3 files to the 'tracks' folder to download them.")
+    if not track_files:
+        st.info("No tracks available to download. Please add MP3 files to the 'tracks' folder.")
     else:
         with open(track_path, "rb") as f:
             audio_bytes = f.read()
