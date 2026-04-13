@@ -16,21 +16,75 @@ import time
 # ------------------------------
 st.set_page_config(page_title="Music Studio Pro", layout="wide")
 
-def show_haitian_flag(width=100):
-    st.image("https://flagcdn.com/w320/ht.png", width=width)
+# Colorful music studio logo (shiny, animated)
+def show_music_logo(width=120):
+    st.markdown(
+        f"""
+        <div style="display: flex; justify-content: center; margin-bottom: 1rem;">
+            <div style="text-align: center;">
+                <svg width="{width}" height="{width}" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#ff007f;stop-opacity:1" />
+                            <stop offset="50%" style="stop-color:#ffcc00;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#00ffcc;stop-opacity:1" />
+                        </linearGradient>
+                        <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#ff6600;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#ff00ff;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                    <!-- Equalizer bars -->
+                    <rect x="15" y="30" width="10" height="40" fill="url(#grad1)" rx="3">
+                        <animate attributeName="height" values="40;20;50;30;40" dur="1.5s" repeatCount="indefinite" />
+                    </rect>
+                    <rect x="30" y="20" width="10" height="50" fill="url(#grad2)" rx="3">
+                        <animate attributeName="height" values="50;60;30;45;50" dur="1.2s" repeatCount="indefinite" />
+                    </rect>
+                    <rect x="45" y="10" width="10" height="60" fill="url(#grad1)" rx="3">
+                        <animate attributeName="height" values="60;40;70;50;60" dur="1.8s" repeatCount="indefinite" />
+                    </rect>
+                    <rect x="60" y="25" width="10" height="45" fill="url(#grad2)" rx="3">
+                        <animate attributeName="height" values="45;55;35;65;45" dur="1.3s" repeatCount="indefinite" />
+                    </rect>
+                    <rect x="75" y="35" width="10" height="35" fill="url(#grad1)" rx="3">
+                        <animate attributeName="height" values="35;25;45;30;35" dur="1.6s" repeatCount="indefinite" />
+                    </rect>
+                    <!-- Music note -->
+                    <circle cx="50" cy="75" r="8" fill="white" opacity="0.9"/>
+                    <path d="M55 75 L55 50 L70 55 L70 60 L58 56 L58 75" fill="white" opacity="0.9"/>
+                </svg>
+                <p style="color: #FFD700; margin-top: 5px; font-weight: bold;">Music Studio Pro</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
+# Authentication
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "purchase_unlocked" not in st.session_state:
     st.session_state.purchase_unlocked = False
 
 if not st.session_state.authenticated:
+    # Colorful gradient background for login page
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: linear-gradient(135deg, #1a0b2e, #2d1b4e, #1a0b2e);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
     st.title("🔐 Login Required")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        show_haitian_flag(150)
-        st.markdown("<h2 style='text-align: center;'>Music Studio Pro</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center;'>by GlobalInternet.py</p>", unsafe_allow_html=True)
+        show_music_logo(150)
+        st.markdown("<h2 style='text-align: center; color: white;'>Music Studio Pro</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: #FFD700;'>by GlobalInternet.py</p>", unsafe_allow_html=True)
         password_input = st.text_input("Enter password to access", type="password")
         if st.button("Login"):
             if password_input == "20082010":
@@ -41,17 +95,31 @@ if not st.session_state.authenticated:
     st.stop()
 
 # ------------------------------
-# CUSTOM CSS
+# AFTER LOGIN – MAIN APP (colorful studio theme)
 # ------------------------------
-st.markdown("""
-<style>
-    .main-header { background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 1.5rem; border-radius: 20px; text-align: center; margin-bottom: 1rem; }
-    .main-header h1 { color: white; margin: 0; font-size: 2.5rem; }
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    }
+    .main-header {
+        background: rgba(255,255,255,0.1);
+        padding: 1.5rem;
+        border-radius: 20px;
+        text-align: center;
+        margin-bottom: 1rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255,255,255,0.2);
+    }
+    .main-header h1 { color: white; margin: 0; font-size: 2.5rem; text-shadow: 0 0 10px #ff00cc; }
     .main-header p { color: #FFD700; margin: 0; font-size: 1.1rem; }
     .download-btn { background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; display: inline-block; }
-    .footer { text-align: center; color: #666; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; }
-</style>
-""", unsafe_allow_html=True)
+    .footer { text-align: center; color: #ccc; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ccc; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 st.markdown("""
 <div class="main-header">
@@ -60,18 +128,18 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-col_flag, col_title = st.columns([1, 3])
-with col_flag:
-    show_haitian_flag(120)
+col_logo, col_title = st.columns([1, 3])
+with col_logo:
+    show_music_logo(120)
 with col_title:
-    st.markdown("<p style='font-size:1.1rem;'>🎵 Preview tracks, upload your own, record voice, mix, and create multi‑track beats.</p>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:1.1rem; color:white;'>🎵 Preview tracks, upload your own, record voice, mix, and create multi‑track beats.</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# SIDEBAR
+# SIDEBAR – COMPANY INFO & LOGOUT (unchanged)
 # ------------------------------
 with st.sidebar:
-    st.markdown("## 🇭🇹 GlobalInternet.py")
-    show_haitian_flag(80)
+    st.markdown("## 🎧 GlobalInternet.py")
+    show_music_logo(80)
     st.markdown("### Music Studio Pro")
     st.markdown("---")
     st.markdown("**Founder & Developer:**")
@@ -92,7 +160,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------
-# LANGUAGE (fallback to English)
+# MULTI-LANGUAGE SUPPORT (unchanged)
 # ------------------------------
 LANGUAGES = {"English":"en","Español":"es","Français":"fr","Kreyòl Ayisyen":"ht"}
 TEXTS = {
@@ -154,7 +222,7 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS MANAGEMENT (40 demo tracks + user uploads)
+# TRACKS MANAGEMENT (unchanged – 40 demo tracks)
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
@@ -205,7 +273,7 @@ all_track_url_or_path = all_demo_urls + [os.path.join(TRACKS_DIR, f) for f in us
 if not user_tracks:
     st.info(get_text("no_tracks"))
 
-st.markdown(f"<h3 style='color: #764ba2;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
+st.markdown(f"<h3 style='color: #FFD700;'>{get_text('select_track')}</h3>", unsafe_allow_html=True)
 selected_index = st.selectbox("", range(len(all_track_names)), format_func=lambda i: all_track_names[i], label_visibility="collapsed")
 selected_track_name = all_track_names[selected_index]
 is_demo = all_track_is_demo[selected_index]
@@ -214,10 +282,10 @@ track_source = all_track_url_or_path[selected_index]
 st.audio(track_source, format="audio/mp3")
 
 # ------------------------------
-# UNLOCK & DOWNLOAD
+# UNLOCK & DOWNLOAD (unchanged)
 # ------------------------------
 st.markdown("---")
-st.markdown(f"<h3 style='color: #764ba2;'>{get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
+st.markdown(f"<h3 style='color: #FFD700;'>{get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
 purchase_pass = st.text_input("", type="password", placeholder="Enter purchase password", label_visibility="collapsed")
 if st.button(get_text("unlock_btn"), use_container_width=True):
     if purchase_pass == "music2026":
@@ -251,10 +319,10 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (HTML5)
+# VOICE RECORDING (unchanged)
 # ------------------------------
 st.markdown("---")
-st.markdown(f"<h3 style='color: #764ba2;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
+st.markdown(f"<h3 style='color: #FFD700;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("record_instruction"))
 
 recorder_html = """
@@ -329,10 +397,10 @@ if voice_file is not None:
     st.success("Voice file loaded. You can now mix it with the backing track.")
 
 # ------------------------------
-# SING OVER TRACK (FIXED: proper quoting of file paths)
+# SING OVER TRACK (unchanged)
 # ------------------------------
 st.markdown("---")
-st.markdown(f"<h3 style='color: #764ba2;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
+st.markdown(f"<h3 style='color: #FFD700;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("sing_instruction"))
 
 backing_volume = st.slider(get_text("backing_volume_label"), 0.0, 2.0, 1.0, 0.05)
@@ -340,11 +408,9 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
     if "voice_bytes" not in st.session_state or not st.session_state.voice_bytes:
         st.warning(get_text("no_recording_found"))
     else:
-        # Save voice bytes to a temporary WAV file
         voice_wav = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
         voice_wav.write(st.session_state.voice_bytes)
         voice_wav.close()
-        # Get backing track file (download demo if needed)
         if is_demo:
             resp = requests.get(track_source)
             if resp.status_code == 200:
@@ -358,7 +424,6 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
             backing_path = track_source
         if backing_path:
             output_path = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3").name
-            # IMPORTANT: Quote paths to handle spaces and special characters
             cmd = f'ffmpeg -i "{backing_path}" -i "{voice_wav.name}" -filter_complex "[0:a]volume={backing_volume}[backing];[1:a][backing]amix=inputs=2:duration=longest" -y "{output_path}"'
             try:
                 subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
@@ -378,11 +443,11 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
 st.caption("Tip: First record your voice using the recorder above, then download it and upload it here.")
 
 # ------------------------------
-# STUDIO EFFECTS
+# STUDIO EFFECTS (unchanged)
 # ------------------------------
 if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_bytes:
     st.markdown("---")
-    st.markdown(f"<h3 style='color: #764ba2;'>{get_text('effects_title')}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color: #FFD700;'>{get_text('effects_title')}</h3>", unsafe_allow_html=True)
     st.markdown(get_text("effects_instruction"))
 
     audio_data, sample_rate = sf.read(io.BytesIO(st.session_state.mixed_audio_bytes))
@@ -435,16 +500,15 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# ENHANCED BEAT MAKER (rich sounds)
+# BEAT MAKER (unchanged)
 # ------------------------------
 st.markdown("---")
-st.markdown(f"<h3 style='color: #764ba2;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
+st.markdown(f"<h3 style='color: #FFD700;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
 st.markdown(get_text("beat_instruction"))
 
 steps = 16
 bpm = st.slider(get_text("bpm_label"), 60, 180, 120, 5)
 
-# Define drum tracks with synthesis methods
 tracks = [
     {"name": "Kick", "key": "kick", "synthesis": "kick", "vol_default": 1.0},
     {"name": "Snare", "key": "snare", "synthesis": "snare", "vol_default": 1.0},
@@ -454,13 +518,11 @@ tracks = [
     {"name": "Tom", "key": "tom", "synthesis": "tom", "vol_default": 0.9}
 ]
 
-# Initialize session state
 if "beat_patterns" not in st.session_state:
     st.session_state.beat_patterns = {t["key"]: [False]*steps for t in tracks}
 if "beat_volumes" not in st.session_state:
     st.session_state.beat_volumes = {t["key"]: t["vol_default"] for t in tracks}
 
-# Display step sequencer for each track
 for tr in tracks:
     st.markdown(f"**{tr['name']}**")
     cols = st.columns(steps+1)
@@ -475,7 +537,6 @@ for tr in tracks:
         vol = st.slider(get_text("volume"), 0.0, 1.0, st.session_state.beat_volumes[tr["key"]], 0.05, key=f"vol_{tr['key']}")
         st.session_state.beat_volumes[tr["key"]] = vol
 
-# Sound synthesis functions (rich)
 def generate_kick(sample_rate, duration=0.2, freq_start=80, freq_end=40):
     t = np.linspace(0, duration, int(sample_rate*duration))
     freq = np.exp(np.linspace(np.log(freq_start), np.log(freq_end), len(t)))
@@ -542,7 +603,6 @@ def generate_track_audio(pattern, bpm, synthesis_type, duration_seconds=8):
         audio[start_sample:end_sample] += sound[:end_sample-start_sample]
     return audio, sample_rate
 
-# Play All Tracks button
 if st.button(get_text("play_all")):
     with st.spinner("Generating beat..."):
         mixed_audio = None
@@ -589,4 +649,4 @@ st.caption("Tip: Create patterns for each drum, adjust volume faders, then play 
 # ------------------------------
 # FOOTER
 # ------------------------------
-st.markdown('<div class="footer">🇭🇹 *GlobalInternet.py – Music Studio Pro* 🇭🇹</div>', unsafe_allow_html=True)
+st.markdown('<div class="footer">🎧 *GlobalInternet.py – Music Studio Pro* 🎧</div>', unsafe_allow_html=True)
