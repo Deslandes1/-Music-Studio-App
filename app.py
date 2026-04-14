@@ -75,6 +75,10 @@ if not st.session_state.authenticated:
         .stApp {
             background: linear-gradient(135deg, #1a0b2e, #2d1b4e, #1a0b2e);
         }
+        /* Make all text white on login page */
+        .stApp, .stApp h1, .stApp p, .stApp label, .stMarkdown {
+            color: white !important;
+        }
         </style>
         """,
         unsafe_allow_html=True
@@ -103,6 +107,37 @@ st.markdown(
     .stApp {
         background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     }
+    /* Make all text white for better readability on dark background */
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, 
+    .stApp label, .stApp .stMarkdown, .stApp .stText, .stApp .stCaption, .stApp .stInfo, 
+    .stApp .stSuccess, .stApp .stWarning, .stApp .stError {
+        color: white !important;
+    }
+    /* Keep alert backgrounds but text white */
+    .stAlert {
+        color: white !important;
+    }
+    /* Button text */
+    .stButton button {
+        color: white !important;
+    }
+    /* Slider labels and values */
+    .stSlider label, .stSlider div[data-baseweb="slider"] span {
+        color: white !important;
+    }
+    /* Checkbox labels */
+    .stCheckbox label {
+        color: white !important;
+    }
+    /* Number input and text input text */
+    .stNumberInput input, .stTextInput input, .stTextArea textarea {
+        color: white !important;
+        background-color: rgba(255,255,255,0.1) !important;
+    }
+    /* Footer */
+    .footer {
+        color: white !important;
+    }
     .main-header {
         background: rgba(255,255,255,0.1);
         padding: 1.5rem;
@@ -115,7 +150,6 @@ st.markdown(
     .main-header h1 { color: white; margin: 0; font-size: 2.5rem; text-shadow: 0 0 10px #ff00cc; }
     .main-header p { color: #FFD700; margin: 0; font-size: 1.1rem; }
     .download-btn { background-color: #28a745; color: white; padding: 10px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; display: inline-block; }
-    .footer { text-align: center; color: #ccc; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ccc; }
     </style>
     """,
     unsafe_allow_html=True
