@@ -129,10 +129,16 @@ st.markdown(
     .stCheckbox label {
         color: white !important;
     }
-    /* Number input and text input text */
+    /* Number input and text input text - except the purchase password field */
     .stNumberInput input, .stTextInput input, .stTextArea textarea {
         color: white !important;
         background-color: rgba(255,255,255,0.1) !important;
+    }
+    /* Special rule for the purchase password input - make text black on light background */
+    div[data-testid="stTextInput"]:has(input[placeholder="Enter purchase password"]) input {
+        color: black !important;
+        background-color: #f0f2f6 !important;
+        border: 1px solid #ccc !important;
     }
     /* Sidebar specific - make text black for readability on light background */
     section[data-testid="stSidebar"] {
