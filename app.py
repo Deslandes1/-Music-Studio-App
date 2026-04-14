@@ -134,6 +134,35 @@ st.markdown(
         color: white !important;
         background-color: rgba(255,255,255,0.1) !important;
     }
+    /* Sidebar specific - make text black for readability on light background */
+    section[data-testid="stSidebar"] {
+        background-color: #f0f2f6 !important;
+    }
+    section[data-testid="stSidebar"] * {
+        color: black !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] .stTextInput,
+    section[data-testid="stSidebar"] .stSelectbox,
+    section[data-testid="stSidebar"] .stButton button {
+        color: black !important;
+    }
+    /* Keep sidebar button background but text black */
+    section[data-testid="stSidebar"] .stButton button {
+        background-color: #e0e0e0 !important;
+        color: black !important;
+        border: 1px solid #ccc !important;
+    }
+    /* Sidebar logo text stays gold? User wants black for the listed items, so override */
+    section[data-testid="stSidebar"] p[style*="color: #FFD700"] {
+        color: black !important;
+    }
     /* Footer */
     .footer {
         color: white !important;
@@ -169,7 +198,7 @@ with col_title:
     st.markdown("<p style='font-size:1.1rem; color:white;'>🎵 Preview tracks, upload your own, record voice, mix, and create multi‑track beats.</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# SIDEBAR – COMPANY INFO & LOGOUT (unchanged)
+# SIDEBAR – COMPANY INFO & LOGOUT (updated with black text)
 # ------------------------------
 with st.sidebar:
     st.markdown("## 🎧 GlobalInternet.py")
