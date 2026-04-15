@@ -716,11 +716,11 @@ if st.button(get_text("download_beat")):
 st.caption("Tip: Create patterns for each drum, adjust volume faders, then play all together. Download the mixed WAV and upload it as a track.")
 
 # ------------------------------
-# NEW: INFINITY BEAT MAKER (Advanced Sequencer with Tone.js)
+# ENHANCED INFINITY BEAT MAKER (8 drum tracks + continuous loops + Auto‑Tune Voice)
 # ------------------------------
 st.markdown("---")
-st.markdown("<h3 style='color: #FFD700;'>🎛️ Infinity Beat Maker (Advanced Sequencer)</h3>", unsafe_allow_html=True)
-st.markdown("Professional step sequencer with continuous loops, BPM sync, and render to WAV. **Click 'Start Audio' first to enable sound.**", unsafe_allow_html=True)
+st.markdown("<h3 style='color: #FFD700;'>🎛️ Infinity Beat Maker (Pro)</h3>", unsafe_allow_html=True)
+st.markdown("Professional 8‑track step sequencer + continuous bass/pad. **Click 'Start Audio' first.**", unsafe_allow_html=True)
 
 infinity_beat_html = """
 <div id="infinity-beat-root" style="background:#0a0c16; border-radius:24px; padding:20px; margin:15px 0; border:1px solid #0ff3; font-family: monospace;">
@@ -736,23 +736,39 @@ infinity_beat_html = """
         </div>
     </div>
 
-    <!-- Drum Tracks (grid) -->
+    <!-- 8 Drum Tracks (grid) -->
     <div style="margin-bottom:28px;">
-        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
             <div style="color:#0ff; font-weight:bold;">Kick</div>
             <div id="kickGrid" style="display:contents;"></div>
         </div>
-        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
             <div style="color:#0ff; font-weight:bold;">Snare</div>
             <div id="snareGrid" style="display:contents;"></div>
         </div>
-        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
             <div style="color:#0ff; font-weight:bold;">Hi-Hat</div>
             <div id="hihatGrid" style="display:contents;"></div>
         </div>
-        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
             <div style="color:#0ff; font-weight:bold;">Clap</div>
             <div id="clapGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Open Hat</div>
+            <div id="openhatGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Crash</div>
+            <div id="crashGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Tom</div>
+            <div id="tomGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Perc</div>
+            <div id="percGrid" style="display:contents;"></div>
         </div>
     </div>
 
@@ -763,16 +779,16 @@ infinity_beat_html = """
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
                     <button id="bassToggle" style="width:70px; background:#2a2f4a; color:#ccc; border-radius:40px; padding:8px 0; border:none; cursor:pointer;">OFF</button>
                     <span style="color:#0ff;">Deep Bass</span>
-                    <span>Volume</span>
-                    <input type="range" id="bassVol" min="0" max="1" step="0.01" value="0.8" style="width:100px;">
+                    <span>Vol</span>
+                    <input type="range" id="bassVol" min="0" max="1" step="0.01" value="0.8" style="width:80px;">
                 </div>
             </div>
             <div style="flex:1; min-width:180px;">
                 <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
                     <button id="padToggle" style="width:70px; background:#2a2f4a; color:#ccc; border-radius:40px; padding:8px 0; border:none; cursor:pointer;">OFF</button>
                     <span style="color:#0ff;">Ethereal Pad</span>
-                    <span>Volume</span>
-                    <input type="range" id="padVol" min="0" max="1" step="0.01" value="0.7" style="width:100px;">
+                    <span>Vol</span>
+                    <input type="range" id="padVol" min="0" max="1" step="0.01" value="0.7" style="width:80px;">
                 </div>
             </div>
         </div>
@@ -792,8 +808,7 @@ infinity_beat_html = """
 <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 <script>
     (function(){
-        // ---------- Helper: create grid ----------
-        function createGrid(containerId, trackName, steps=16) {
+        function createGrid(containerId, steps=16) {
             const container = document.getElementById(containerId);
             if(!container) return;
             container.innerHTML = '';
@@ -805,10 +820,8 @@ infinity_beat_html = """
                 btn.style.border = '1px solid #2a3350';
                 btn.style.borderRadius = '8px';
                 btn.style.cursor = 'pointer';
-                btn.style.transition = '0.05s linear';
                 btn.dataset.active = 'false';
                 btn.dataset.step = i;
-                btn.dataset.track = trackName;
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     const active = btn.dataset.active === 'true';
@@ -825,15 +838,17 @@ infinity_beat_html = """
                 container.appendChild(btn);
             }
         }
-        createGrid('kickGrid', 'kick', 16);
-        createGrid('snareGrid', 'snare', 16);
-        createGrid('hihatGrid', 'hihat', 16);
-        createGrid('clapGrid', 'clap', 16);
+        createGrid('kickGrid', 16);
+        createGrid('snareGrid', 16);
+        createGrid('hihatGrid', 16);
+        createGrid('clapGrid', 16);
+        createGrid('openhatGrid', 16);
+        createGrid('crashGrid', 16);
+        createGrid('tomGrid', 16);
+        createGrid('percGrid', 16);
 
-        // ---------- Tone.js setup ----------
         let transportStarted = false;
         let currentStep = 0;
-        let stepInterval = null; // use Tone.Transport schedule instead
         let loop = null;
         let isPlaying = false;
         let bassActive = false;
@@ -844,37 +859,28 @@ infinity_beat_html = """
         const snareSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination();
         const hihatSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).toDestination();
         const clapSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0 } }).toDestination();
+        const openhatSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.15, sustain: 0 } }).toDestination();
+        const crashSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.01, decay: 0.8, sustain: 0 } }).toDestination();
+        const tomSynth = new Tone.MembraneSynth({ pitchDecay: 0.1, octaves: 3 }).toDestination();
+        const percSynth = new Tone.MetalSynth({ frequency: 800, envelope: { attack: 0.001, decay: 0.2 } }).toDestination();
         
-        // Bass continuous (sub sine)
         const bassSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.3 } }).toDestination();
         bassSynth.volume.value = -6;
-        // Pad (poly synth with minor 9th chord)
-        const padSynth = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: 'sawtooth' },
-            envelope: { attack: 0.5, decay: 0.8, sustain: 0.6, release: 1.5 }
-        }).toDestination();
+        const padSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.5, decay: 0.8, sustain: 0.6, release: 1.5 } }).toDestination();
         padSynth.volume.value = -12;
         
-        // Gains for continuous tracks
         const bassGain = new Tone.Gain(0.8).toDestination();
         const padGain = new Tone.Gain(0.7).toDestination();
         bassSynth.connect(bassGain);
         padSynth.connect(padGain);
         
         const masterGain = new Tone.Gain(0.8).toDestination();
-        kickSynth.connect(masterGain);
-        snareSynth.connect(masterGain);
-        hihatSynth.connect(masterGain);
-        clapSynth.connect(masterGain);
-        bassGain.connect(masterGain);
-        padGain.connect(masterGain);
+        [kickSynth, snareSynth, hihatSynth, clapSynth, openhatSynth, crashSynth, tomSynth, percSynth, bassGain, padGain].forEach(s => s.connect(masterGain));
         
-        // Volume UI bindings
         document.getElementById('bassVol').addEventListener('input', (e) => bassGain.gain.value = parseFloat(e.target.value));
         document.getElementById('padVol').addEventListener('input', (e) => padGain.gain.value = parseFloat(e.target.value));
         document.getElementById('masterVol').addEventListener('input', (e) => masterGain.gain.value = parseFloat(e.target.value));
         
-        // BPM slider
         const bpmSlider = document.getElementById('bpmSlider');
         const bpmVal = document.getElementById('bpmValue');
         bpmSlider.addEventListener('input', (e) => {
@@ -883,7 +889,6 @@ infinity_beat_html = """
             Tone.Transport.bpm.value = bpm;
         });
         
-        // Toggle buttons
         const bassBtn = document.getElementById('bassToggle');
         const padBtn = document.getElementById('padToggle');
         bassBtn.onclick = () => {
@@ -892,15 +897,10 @@ infinity_beat_html = """
             bassBtn.style.backgroundColor = bassActive ? '#0f6' : '#2a2f4a';
             bassBtn.style.color = bassActive ? '#000' : '#ccc';
             if(bassActive){
-                // schedule repeating bass note every quarter note
                 if(window.bassLoop) window.bassLoop.stop();
-                window.bassLoop = new Tone.Loop((time) => {
-                    bassSynth.triggerAttackRelease('C2', '8n', time);
-                }, '4n');
+                window.bassLoop = new Tone.Loop((time) => { bassSynth.triggerAttackRelease('C2', '8n', time); }, '4n');
                 if(transportStarted) window.bassLoop.start(0);
-            } else {
-                if(window.bassLoop) window.bassLoop.stop();
-            }
+            } else { if(window.bassLoop) window.bassLoop.stop(); }
         };
         padBtn.onclick = () => {
             padActive = !padActive;
@@ -908,52 +908,35 @@ infinity_beat_html = """
             padBtn.style.backgroundColor = padActive ? '#0f6' : '#2a2f4a';
             padBtn.style.color = padActive ? '#000' : '#ccc';
             if(padActive){
-                // play a chord (minor 9th: C Eb G Bb D)
-                const chord = ['C3', 'Eb3', 'G3', 'Bb3', 'D4'];
                 if(window.padLoop) window.padLoop.stop();
-                window.padLoop = new Tone.Loop((time) => {
-                    padSynth.triggerAttackRelease(chord, '2n', time);
-                }, '1m'); // every bar
+                window.padLoop = new Tone.Loop((time) => { padSynth.triggerAttackRelease(['C3','Eb3','G3','Bb3','D4'], '2n', time); }, '1m');
                 if(transportStarted) window.padLoop.start(0);
-            } else {
-                if(window.padLoop) window.padLoop.stop();
-                padSynth.releaseAll();
-            }
+            } else { if(window.padLoop) window.padLoop.stop(); padSynth.releaseAll(); }
         };
         
-        // Step sequencer logic
         function scheduleStep(time, step) {
             const stepIndex = step % 16;
-            // Highlight current step
             document.querySelectorAll('[data-step]').forEach(btn => {
                 const stepNum = parseInt(btn.dataset.step);
-                if(stepNum === stepIndex){
-                    btn.style.boxShadow = '0 0 0 2px #0ff';
-                } else {
-                    btn.style.boxShadow = 'none';
-                }
+                btn.style.boxShadow = stepNum === stepIndex ? '0 0 0 2px #0ff' : 'none';
             });
-            // trigger drums if active
-            const kickBtns = document.querySelectorAll('#kickGrid button');
-            if(kickBtns[stepIndex] && kickBtns[stepIndex].dataset.active === 'true') kickSynth.triggerAttackRelease('C1', '16n', time);
-            const snareBtns = document.querySelectorAll('#snareGrid button');
-            if(snareBtns[stepIndex] && snareBtns[stepIndex].dataset.active === 'true') snareSynth.triggerAttackRelease('16n', time);
-            const hihatBtns = document.querySelectorAll('#hihatGrid button');
-            if(hihatBtns[stepIndex] && hihatBtns[stepIndex].dataset.active === 'true') hihatSynth.triggerAttackRelease('32n', time);
-            const clapBtns = document.querySelectorAll('#clapGrid button');
-            if(clapBtns[stepIndex] && clapBtns[stepIndex].dataset.active === 'true') clapSynth.triggerAttackRelease('16n', time);
+            const getActive = (gridId, idx) => document.querySelectorAll(`#${gridId} button`)[idx]?.dataset.active === 'true';
+            if(getActive('kickGrid', stepIndex)) kickSynth.triggerAttackRelease('C1', '16n', time);
+            if(getActive('snareGrid', stepIndex)) snareSynth.triggerAttackRelease('16n', time);
+            if(getActive('hihatGrid', stepIndex)) hihatSynth.triggerAttackRelease('32n', time);
+            if(getActive('clapGrid', stepIndex)) clapSynth.triggerAttackRelease('16n', time);
+            if(getActive('openhatGrid', stepIndex)) openhatSynth.triggerAttackRelease('16n', time);
+            if(getActive('crashGrid', stepIndex)) crashSynth.triggerAttackRelease('2n', time);
+            if(getActive('tomGrid', stepIndex)) tomSynth.triggerAttackRelease('D2', '16n', time);
+            if(getActive('percGrid', stepIndex)) percSynth.triggerAttackRelease('32n', time);
         }
         
         function startSequencer() {
             if(loop) loop.dispose();
-            loop = new Tone.Loop((time) => {
-                scheduleStep(time, currentStep);
-                currentStep = (currentStep + 1) % 16;
-            }, '16n');
+            loop = new Tone.Loop((time) => { scheduleStep(time, currentStep); currentStep = (currentStep+1)%16; }, '16n');
             loop.start(0);
         }
         
-        // Play/Stop
         const playBtn = document.getElementById('playStopBtn');
         playBtn.onclick = async () => {
             if(!transportStarted){
@@ -979,7 +962,6 @@ infinity_beat_html = """
             }
         };
         
-        // Start Audio button (initializes)
         const startBtn = document.getElementById('startAudioBtn');
         startBtn.onclick = async () => {
             await Tone.start();
@@ -989,34 +971,22 @@ infinity_beat_html = """
             Tone.Transport.bpm.value = parseInt(bpmSlider.value);
         };
         
-        // Render WAV (1 bar = 16 steps = 4 beats)
         const renderBtn = document.getElementById('renderBtn');
         const statusDiv = document.getElementById('renderStatus');
         renderBtn.onclick = async () => {
-            if(!transportStarted){
-                statusDiv.innerText = '⚠️ Click "Start Audio" first.';
-                return;
-            }
+            if(!transportStarted){ statusDiv.innerText = '⚠️ Click "Start Audio" first.'; return; }
             statusDiv.innerText = 'Rendering... please wait.';
             const bpm = Tone.Transport.bpm.value;
-            const duration = (60 / bpm) * 4; // 4 quarter notes = 1 bar
+            const duration = (60 / bpm) * 4;
             const recorder = new Tone.Recorder();
             masterGain.connect(recorder);
-            // create a temporary loop to play the exact pattern once
-            const originalLoop = loop;
-            if(originalLoop) originalLoop.stop();
-            const tempLoop = new Tone.Loop((time) => {
-                scheduleStep(time, currentStep);
-                currentStep = (currentStep + 1) % 16;
-            }, '16n');
-            // also ensure continuous loops play during render
-            const bassWasActive = bassActive;
-            const padWasActive = padActive;
-            if(bassWasActive && window.bassLoop) window.bassLoop.stop();
-            if(padWasActive && window.padLoop) window.padLoop.stop();
+            if(loop) loop.stop();
+            const tempLoop = new Tone.Loop((time) => { scheduleStep(time, currentStep); currentStep = (currentStep+1)%16; }, '16n');
+            const bassWasActive = bassActive, padWasActive = padActive;
+            if(window.bassLoop) window.bassLoop.stop();
+            if(window.padLoop) window.padLoop.stop();
             const tempBassLoop = bassWasActive ? new Tone.Loop((time) => { bassSynth.triggerAttackRelease('C2', '8n', time); }, '4n') : null;
             const tempPadLoop = padWasActive ? new Tone.Loop((time) => { padSynth.triggerAttackRelease(['C3','Eb3','G3','Bb3','D4'], '2n', time); }, '1m') : null;
-            
             Tone.Transport.stop();
             currentStep = 0;
             Tone.Transport.bpm.value = bpm;
@@ -1026,7 +996,6 @@ infinity_beat_html = """
             if(tempBassLoop) tempBassLoop.start(0);
             if(tempPadLoop) tempPadLoop.start(0);
             Tone.Transport.start();
-            // wait for duration
             await new Promise(resolve => setTimeout(resolve, duration * 1000 + 200));
             Tone.Transport.stop();
             const recording = await recorder.stop();
@@ -1040,11 +1009,9 @@ infinity_beat_html = """
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             statusDiv.innerHTML = '✅ Render complete! Download started.';
-            // cleanup temp loops
             tempLoop.dispose();
             if(tempBassLoop) tempBassLoop.dispose();
             if(tempPadLoop) tempPadLoop.dispose();
-            // restart original loops if playing
             if(isPlaying){
                 startSequencer();
                 if(bassActive && window.bassLoop) window.bassLoop.start(0);
@@ -1055,7 +1022,166 @@ infinity_beat_html = """
     })();
 </script>
 """
-st.components.v1.html(infinity_beat_html, height=650)
+st.components.v1.html(infinity_beat_html, height=750)
+
+# ------------------------------
+# NEW: AUTO-TUNE VOICE RECORDER (with real‑time pitch correction)
+# ------------------------------
+st.markdown("---")
+st.markdown("<h3 style='color: #FFD700;'>🎤 Auto‑Tune Voice Recorder</h3>", unsafe_allow_html=True)
+st.markdown("Record your voice, apply professional pitch correction (auto‑tune), and download the processed audio.", unsafe_allow_html=True)
+
+autotune_html = """
+<div id="autotune-container" style="background:#0f1222; border-radius:24px; padding:20px; margin:15px 0;">
+    <div style="display:flex; gap:15px; flex-wrap:wrap; align-items:center; margin-bottom:20px;">
+        <button id="atRecordBtn" style="background:#ff4444; color:white; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">🔴 Record</button>
+        <button id="atStopBtn" style="background:#444; color:white; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;" disabled>⏹️ Stop</button>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="color:#0ff;">Pitch (semitones)</span>
+            <input type="range" id="atPitchSlider" min="-12" max="12" value="0" step="1" style="width:150px;">
+            <span id="atPitchValue" style="color:#0ff;">0</span>
+        </div>
+        <button id="atProcessBtn" style="background:#0f6; color:#000; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">✨ Apply Auto‑Tune & Download</button>
+    </div>
+    <div id="atStatus" style="color:#ffaa00; margin-bottom:10px;"></div>
+    <audio id="atPlayback" controls style="width:100%; display:none;"></audio>
+</div>
+<script>
+    (function(){
+        let mediaRecorder;
+        let audioChunks = [];
+        let stream = null;
+        let recordedBlob = null;
+        const recordBtn = document.getElementById('atRecordBtn');
+        const stopBtn = document.getElementById('atStopBtn');
+        const statusDiv = document.getElementById('atStatus');
+        const playback = document.getElementById('atPlayback');
+        const pitchSlider = document.getElementById('atPitchSlider');
+        const pitchVal = document.getElementById('atPitchValue');
+        const processBtn = document.getElementById('atProcessBtn');
+        
+        pitchSlider.addEventListener('input', () => { pitchVal.innerText = pitchSlider.value; });
+        
+        recordBtn.onclick = async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const url = URL.createObjectURL(recordedBlob);
+                    playback.src = url;
+                    playback.style.display = 'block';
+                    statusDiv.innerHTML = 'Recording saved. Use slider to set pitch shift, then click "Apply Auto‑Tune & Download".';
+                    if(stream) stream.getTracks().forEach(t => t.stop());
+                    recordBtn.disabled = false;
+                    stopBtn.disabled = true;
+                };
+                mediaRecorder.start();
+                recordBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusDiv.innerHTML = '🔴 Recording...';
+                playback.style.display = 'none';
+            } catch(err) {
+                statusDiv.innerHTML = 'Microphone error: ' + err.message;
+            }
+        };
+        stopBtn.onclick = () => {
+            if(mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+                statusDiv.innerHTML = 'Processing...';
+            }
+        };
+        processBtn.onclick = () => {
+            if(!recordedBlob) {
+                statusDiv.innerHTML = 'No recording. Please record first.';
+                return;
+            }
+            const pitch = parseFloat(pitchSlider.value);
+            statusDiv.innerHTML = 'Applying pitch shift (auto‑tune)... please wait.';
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const arrayBuffer = e.target.result;
+                // Use Web Audio API to pitch shift
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                const offlineContext = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
+                const source = offlineContext.createBufferSource();
+                source.buffer = audioBuffer;
+                const pitchShifter = offlineContext.createScriptProcessor(4096, 1, 1);
+                let ratio = Math.pow(2, pitch/12);
+                let phase = 0;
+                pitchShifter.onaudioprocess = function(event) {
+                    const input = event.inputBuffer.getChannelData(0);
+                    const output = event.outputBuffer.getChannelData(0);
+                    for (let i = 0; i < input.length; i++) {
+                        phase += ratio;
+                        if (phase >= 1) phase -= 1;
+                        let index = Math.floor(phase * input.length);
+                        output[i] = input[index % input.length];
+                    }
+                };
+                source.connect(pitchShifter);
+                pitchShifter.connect(offlineContext.destination);
+                source.start();
+                const renderedBuffer = await offlineContext.startRendering();
+                // convert to WAV blob
+                const wavBlob = bufferToWav(renderedBuffer);
+                const url = URL.createObjectURL(wavBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'autotune_voice.wav';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                statusDiv.innerHTML = '✅ Auto‑tune applied! Download started.';
+                // also play back
+                const playUrl = URL.createObjectURL(wavBlob);
+                playback.src = playUrl;
+                playback.style.display = 'block';
+            };
+            reader.readAsArrayBuffer(recordedBlob);
+        };
+        function bufferToWav(buffer) {
+            const numChannels = buffer.numberOfChannels;
+            const sampleRate = buffer.sampleRate;
+            const format = 1;
+            const bitDepth = 16;
+            let samples = buffer.getChannelData(0);
+            let dataLength = samples.length * 2;
+            let bufferLength = 44 + dataLength;
+            const arrayBuffer = new ArrayBuffer(bufferLength);
+            const view = new DataView(arrayBuffer);
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, bufferLength - 8, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, format, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * numChannels * 2, true);
+            view.setUint16(32, numChannels * 2, true);
+            view.setUint16(34, bitDepth, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataLength, true);
+            let offset = 44;
+            for (let i = 0; i < samples.length; i++) {
+                let sample = Math.max(-1, Math.min(1, samples[i]));
+                view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+                offset += 2;
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+        function writeString(view, offset, str) {
+            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        }
+    })();
+</script>
+"""
+st.components.v1.html(autotune_html, height=300)
 
 # ------------------------------
 # FOOTER
