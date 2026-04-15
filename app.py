@@ -165,7 +165,7 @@ st.markdown(
         color: black !important;
         border: 1px solid #ccc !important;
     }
-    /* Sidebar logo text stays gold? User wants black for the listed items, so override */
+    /* Sidebar logo text override */
     section[data-testid="stSidebar"] p[style*="color: #FFD700"] {
         color: black !important;
     }
@@ -569,7 +569,7 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# BEAT MAKER (unchanged)
+# ORIGINAL BEAT MAKER (unchanged)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #FFD700;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
@@ -714,6 +714,348 @@ if st.button(get_text("download_beat")):
         st.warning("Generate a beat first by clicking 'Play All Tracks'.")
 
 st.caption("Tip: Create patterns for each drum, adjust volume faders, then play all together. Download the mixed WAV and upload it as a track.")
+
+# ------------------------------
+# NEW: INFINITY BEAT MAKER (Advanced Sequencer with Tone.js)
+# ------------------------------
+st.markdown("---")
+st.markdown("<h3 style='color: #FFD700;'>🎛️ Infinity Beat Maker (Advanced Sequencer)</h3>", unsafe_allow_html=True)
+st.markdown("Professional step sequencer with continuous loops, BPM sync, and render to WAV. **Click 'Start Audio' first to enable sound.**", unsafe_allow_html=True)
+
+infinity_beat_html = """
+<div id="infinity-beat-root" style="background:#0a0c16; border-radius:24px; padding:20px; margin:15px 0; border:1px solid #0ff3; font-family: monospace;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
+        <div style="display:flex; gap:12px;">
+            <button id="startAudioBtn" style="background:#0ff; color:#000; border:none; border-radius:40px; padding:8px 18px; font-weight:bold; cursor:pointer;">🎧 Start Audio</button>
+            <button id="playStopBtn" style="background:#1f2a3a; color:#0ff; border:1px solid #0ff; border-radius:40px; padding:8px 18px; font-weight:bold; cursor:pointer;">▶️ Play</button>
+        </div>
+        <div style="display:flex; gap:15px; align-items:center;">
+            <span style="color:#0ff;">BPM</span>
+            <input type="range" id="bpmSlider" min="60" max="180" value="120" step="1" style="width:160px;">
+            <span id="bpmValue" style="background:#00000066; padding:4px 12px; border-radius:20px; color:#0ff;">120</span>
+        </div>
+    </div>
+
+    <!-- Drum Tracks (grid) -->
+    <div style="margin-bottom:28px;">
+        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Kick</div>
+            <div id="kickGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Snare</div>
+            <div id="snareGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Hi-Hat</div>
+            <div id="hihatGrid" style="display:contents;"></div>
+        </div>
+        <div style="display:grid; grid-template-columns:80px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
+            <div style="color:#0ff; font-weight:bold;">Clap</div>
+            <div id="clapGrid" style="display:contents;"></div>
+        </div>
+    </div>
+
+    <!-- Continuous Tracks (toggle + volume) -->
+    <div style="background:#0f1222; border-radius:20px; padding:15px; margin:20px 0;">
+        <div style="display:flex; flex-wrap:wrap; gap:30px; justify-content:space-between;">
+            <div style="flex:1; min-width:180px;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                    <button id="bassToggle" style="width:70px; background:#2a2f4a; color:#ccc; border-radius:40px; padding:8px 0; border:none; cursor:pointer;">OFF</button>
+                    <span style="color:#0ff;">Deep Bass</span>
+                    <span>Volume</span>
+                    <input type="range" id="bassVol" min="0" max="1" step="0.01" value="0.8" style="width:100px;">
+                </div>
+            </div>
+            <div style="flex:1; min-width:180px;">
+                <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                    <button id="padToggle" style="width:70px; background:#2a2f4a; color:#ccc; border-radius:40px; padding:8px 0; border:none; cursor:pointer;">OFF</button>
+                    <span style="color:#0ff;">Ethereal Pad</span>
+                    <span>Volume</span>
+                    <input type="range" id="padVol" min="0" max="1" step="0.01" value="0.7" style="width:100px;">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Master Volume & Render -->
+    <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-top:20px;">
+        <div style="display:flex; gap:15px; align-items:center;">
+            <span style="color:#0ff;">Master Vol</span>
+            <input type="range" id="masterVol" min="0" max="1" step="0.01" value="0.8" style="width:120px;">
+        </div>
+        <button id="renderBtn" style="background:#0f6; color:#000; border:none; border-radius:40px; padding:8px 20px; font-weight:bold; cursor:pointer;">⬇️ Render WAV (1 bar)</button>
+    </div>
+    <div id="renderStatus" style="color:#0fa; margin-top:12px; font-size:0.8rem;"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
+<script>
+    (function(){
+        // ---------- Helper: create grid ----------
+        function createGrid(containerId, trackName, steps=16) {
+            const container = document.getElementById(containerId);
+            if(!container) return;
+            container.innerHTML = '';
+            for(let i=0;i<steps;i++){
+                const btn = document.createElement('button');
+                btn.style.width = '100%';
+                btn.style.aspectRatio = '1/1';
+                btn.style.backgroundColor = '#1f253e';
+                btn.style.border = '1px solid #2a3350';
+                btn.style.borderRadius = '8px';
+                btn.style.cursor = 'pointer';
+                btn.style.transition = '0.05s linear';
+                btn.dataset.active = 'false';
+                btn.dataset.step = i;
+                btn.dataset.track = trackName;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const active = btn.dataset.active === 'true';
+                    if(active){
+                        btn.dataset.active = 'false';
+                        btn.style.backgroundColor = '#1f253e';
+                        btn.style.border = '1px solid #2a3350';
+                    } else {
+                        btn.dataset.active = 'true';
+                        btn.style.backgroundColor = '#0ff';
+                        btn.style.border = '1px solid #0ff';
+                    }
+                };
+                container.appendChild(btn);
+            }
+        }
+        createGrid('kickGrid', 'kick', 16);
+        createGrid('snareGrid', 'snare', 16);
+        createGrid('hihatGrid', 'hihat', 16);
+        createGrid('clapGrid', 'clap', 16);
+
+        // ---------- Tone.js setup ----------
+        let transportStarted = false;
+        let currentStep = 0;
+        let stepInterval = null; // use Tone.Transport schedule instead
+        let loop = null;
+        let isPlaying = false;
+        let bassActive = false;
+        let padActive = false;
+
+        // Synths & Gains
+        const kickSynth = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 4 }).toDestination();
+        const snareSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination();
+        const hihatSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).toDestination();
+        const clapSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.1, sustain: 0 } }).toDestination();
+        
+        // Bass continuous (sub sine)
+        const bassSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.3 } }).toDestination();
+        bassSynth.volume.value = -6;
+        // Pad (poly synth with minor 9th chord)
+        const padSynth = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.5, decay: 0.8, sustain: 0.6, release: 1.5 }
+        }).toDestination();
+        padSynth.volume.value = -12;
+        
+        // Gains for continuous tracks
+        const bassGain = new Tone.Gain(0.8).toDestination();
+        const padGain = new Tone.Gain(0.7).toDestination();
+        bassSynth.connect(bassGain);
+        padSynth.connect(padGain);
+        
+        const masterGain = new Tone.Gain(0.8).toDestination();
+        kickSynth.connect(masterGain);
+        snareSynth.connect(masterGain);
+        hihatSynth.connect(masterGain);
+        clapSynth.connect(masterGain);
+        bassGain.connect(masterGain);
+        padGain.connect(masterGain);
+        
+        // Volume UI bindings
+        document.getElementById('bassVol').addEventListener('input', (e) => bassGain.gain.value = parseFloat(e.target.value));
+        document.getElementById('padVol').addEventListener('input', (e) => padGain.gain.value = parseFloat(e.target.value));
+        document.getElementById('masterVol').addEventListener('input', (e) => masterGain.gain.value = parseFloat(e.target.value));
+        
+        // BPM slider
+        const bpmSlider = document.getElementById('bpmSlider');
+        const bpmVal = document.getElementById('bpmValue');
+        bpmSlider.addEventListener('input', (e) => {
+            const bpm = parseInt(e.target.value);
+            bpmVal.innerText = bpm;
+            Tone.Transport.bpm.value = bpm;
+        });
+        
+        // Toggle buttons
+        const bassBtn = document.getElementById('bassToggle');
+        const padBtn = document.getElementById('padToggle');
+        bassBtn.onclick = () => {
+            bassActive = !bassActive;
+            bassBtn.innerText = bassActive ? 'ON' : 'OFF';
+            bassBtn.style.backgroundColor = bassActive ? '#0f6' : '#2a2f4a';
+            bassBtn.style.color = bassActive ? '#000' : '#ccc';
+            if(bassActive){
+                // schedule repeating bass note every quarter note
+                if(window.bassLoop) window.bassLoop.stop();
+                window.bassLoop = new Tone.Loop((time) => {
+                    bassSynth.triggerAttackRelease('C2', '8n', time);
+                }, '4n');
+                if(transportStarted) window.bassLoop.start(0);
+            } else {
+                if(window.bassLoop) window.bassLoop.stop();
+            }
+        };
+        padBtn.onclick = () => {
+            padActive = !padActive;
+            padBtn.innerText = padActive ? 'ON' : 'OFF';
+            padBtn.style.backgroundColor = padActive ? '#0f6' : '#2a2f4a';
+            padBtn.style.color = padActive ? '#000' : '#ccc';
+            if(padActive){
+                // play a chord (minor 9th: C Eb G Bb D)
+                const chord = ['C3', 'Eb3', 'G3', 'Bb3', 'D4'];
+                if(window.padLoop) window.padLoop.stop();
+                window.padLoop = new Tone.Loop((time) => {
+                    padSynth.triggerAttackRelease(chord, '2n', time);
+                }, '1m'); // every bar
+                if(transportStarted) window.padLoop.start(0);
+            } else {
+                if(window.padLoop) window.padLoop.stop();
+                padSynth.releaseAll();
+            }
+        };
+        
+        // Step sequencer logic
+        function scheduleStep(time, step) {
+            const stepIndex = step % 16;
+            // Highlight current step
+            document.querySelectorAll('[data-step]').forEach(btn => {
+                const stepNum = parseInt(btn.dataset.step);
+                if(stepNum === stepIndex){
+                    btn.style.boxShadow = '0 0 0 2px #0ff';
+                } else {
+                    btn.style.boxShadow = 'none';
+                }
+            });
+            // trigger drums if active
+            const kickBtns = document.querySelectorAll('#kickGrid button');
+            if(kickBtns[stepIndex] && kickBtns[stepIndex].dataset.active === 'true') kickSynth.triggerAttackRelease('C1', '16n', time);
+            const snareBtns = document.querySelectorAll('#snareGrid button');
+            if(snareBtns[stepIndex] && snareBtns[stepIndex].dataset.active === 'true') snareSynth.triggerAttackRelease('16n', time);
+            const hihatBtns = document.querySelectorAll('#hihatGrid button');
+            if(hihatBtns[stepIndex] && hihatBtns[stepIndex].dataset.active === 'true') hihatSynth.triggerAttackRelease('32n', time);
+            const clapBtns = document.querySelectorAll('#clapGrid button');
+            if(clapBtns[stepIndex] && clapBtns[stepIndex].dataset.active === 'true') clapSynth.triggerAttackRelease('16n', time);
+        }
+        
+        function startSequencer() {
+            if(loop) loop.dispose();
+            loop = new Tone.Loop((time) => {
+                scheduleStep(time, currentStep);
+                currentStep = (currentStep + 1) % 16;
+            }, '16n');
+            loop.start(0);
+        }
+        
+        // Play/Stop
+        const playBtn = document.getElementById('playStopBtn');
+        playBtn.onclick = async () => {
+            if(!transportStarted){
+                await Tone.start();
+                transportStarted = true;
+                document.getElementById('startAudioBtn').innerText = '✅ Audio Ready';
+                document.getElementById('startAudioBtn').style.background = '#0f6';
+            }
+            if(isPlaying){
+                Tone.Transport.stop();
+                if(loop) loop.stop();
+                if(window.bassLoop && bassActive) window.bassLoop.stop();
+                if(window.padLoop && padActive) window.padLoop.stop();
+                isPlaying = false;
+                playBtn.innerText = '▶️ Play';
+            } else {
+                Tone.Transport.start();
+                startSequencer();
+                if(bassActive && window.bassLoop) window.bassLoop.start(0);
+                if(padActive && window.padLoop) window.padLoop.start(0);
+                isPlaying = true;
+                playBtn.innerText = '⏹️ Stop';
+            }
+        };
+        
+        // Start Audio button (initializes)
+        const startBtn = document.getElementById('startAudioBtn');
+        startBtn.onclick = async () => {
+            await Tone.start();
+            transportStarted = true;
+            startBtn.innerText = '✅ Audio Ready';
+            startBtn.style.background = '#0f6';
+            Tone.Transport.bpm.value = parseInt(bpmSlider.value);
+        };
+        
+        // Render WAV (1 bar = 16 steps = 4 beats)
+        const renderBtn = document.getElementById('renderBtn');
+        const statusDiv = document.getElementById('renderStatus');
+        renderBtn.onclick = async () => {
+            if(!transportStarted){
+                statusDiv.innerText = '⚠️ Click "Start Audio" first.';
+                return;
+            }
+            statusDiv.innerText = 'Rendering... please wait.';
+            const bpm = Tone.Transport.bpm.value;
+            const duration = (60 / bpm) * 4; // 4 quarter notes = 1 bar
+            const recorder = new Tone.Recorder();
+            masterGain.connect(recorder);
+            // create a temporary loop to play the exact pattern once
+            const originalLoop = loop;
+            if(originalLoop) originalLoop.stop();
+            const tempLoop = new Tone.Loop((time) => {
+                scheduleStep(time, currentStep);
+                currentStep = (currentStep + 1) % 16;
+            }, '16n');
+            // also ensure continuous loops play during render
+            const bassWasActive = bassActive;
+            const padWasActive = padActive;
+            if(bassWasActive && window.bassLoop) window.bassLoop.stop();
+            if(padWasActive && window.padLoop) window.padLoop.stop();
+            const tempBassLoop = bassWasActive ? new Tone.Loop((time) => { bassSynth.triggerAttackRelease('C2', '8n', time); }, '4n') : null;
+            const tempPadLoop = padWasActive ? new Tone.Loop((time) => { padSynth.triggerAttackRelease(['C3','Eb3','G3','Bb3','D4'], '2n', time); }, '1m') : null;
+            
+            Tone.Transport.stop();
+            currentStep = 0;
+            Tone.Transport.bpm.value = bpm;
+            await Tone.start();
+            recorder.start();
+            tempLoop.start(0);
+            if(tempBassLoop) tempBassLoop.start(0);
+            if(tempPadLoop) tempPadLoop.start(0);
+            Tone.Transport.start();
+            // wait for duration
+            await new Promise(resolve => setTimeout(resolve, duration * 1000 + 200));
+            Tone.Transport.stop();
+            const recording = await recorder.stop();
+            const blob = await recording.getBlob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'infinity_beat_1bar.wav';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            statusDiv.innerHTML = '✅ Render complete! Download started.';
+            // cleanup temp loops
+            tempLoop.dispose();
+            if(tempBassLoop) tempBassLoop.dispose();
+            if(tempPadLoop) tempPadLoop.dispose();
+            // restart original loops if playing
+            if(isPlaying){
+                startSequencer();
+                if(bassActive && window.bassLoop) window.bassLoop.start(0);
+                if(padActive && window.padLoop) window.padLoop.start(0);
+                Tone.Transport.start();
+            }
+        };
+    })();
+</script>
+"""
+st.components.v1.html(infinity_beat_html, height=650)
 
 # ------------------------------
 # FOOTER
