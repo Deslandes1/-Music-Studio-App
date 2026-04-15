@@ -992,7 +992,7 @@ infinity_beat_html = """
 st.components.v1.html(infinity_beat_html, height=750)
 
 # ------------------------------
-# FIXED AUTO‑TUNE VOICE RECORDER (uses resampling for reliable pitch shift)
+# FIXED AUTO‑TUNE VOICE RECORDER (Play Processed works)
 # ------------------------------
 st.markdown("---")
 st.markdown("<h3 style='color: #FFD700;'>🎤 Auto‑Tune Voice Recorder</h3>", unsafe_allow_html=True)
@@ -1021,6 +1021,7 @@ autotune_html = """
         let stream = null;
         let recordedBlob = null;
         let processedBlob = null;
+        let processedUrl = null;
         const recordBtn = document.getElementById('atRecordBtn');
         const stopBtn = document.getElementById('atStopBtn');
         const statusDiv = document.getElementById('atStatus');
@@ -1047,6 +1048,10 @@ autotune_html = """
                     if(stream) stream.getTracks().forEach(t => t.stop());
                     recordBtn.disabled = false;
                     stopBtn.disabled = true;
+                    // reset processed blob
+                    processedBlob = null;
+                    if(processedUrl) URL.revokeObjectURL(processedUrl);
+                    processedUrl = null;
                 };
                 mediaRecorder.start();
                 recordBtn.disabled = true;
@@ -1064,7 +1069,6 @@ autotune_html = """
             }
         };
         
-        // Pitch shift using resampling (playback rate change + resample to original sample rate)
         async function pitchShiftAudio(blob, semitones) {
             const arrayBuffer = await blob.arrayBuffer();
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1079,9 +1083,7 @@ autotune_html = """
             source.connect(offlineContext.destination);
             source.start();
             const renderedBuffer = await offlineContext.startRendering();
-            // convert to WAV blob
-            const wavBlob = bufferToWav(renderedBuffer);
-            return wavBlob;
+            return bufferToWav(renderedBuffer);
         }
         
         processBtn.onclick = async () => {
@@ -1093,6 +1095,7 @@ autotune_html = """
             statusDiv.innerHTML = 'Applying pitch shift (auto‑tune)... please wait.';
             try {
                 processedBlob = await pitchShiftAudio(recordedBlob, semitones);
+                // Create a download link
                 const url = URL.createObjectURL(processedBlob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -1100,8 +1103,10 @@ autotune_html = """
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-                statusDiv.innerHTML = '✅ Auto‑tune applied! Download started. You can click "Play Processed" to listen.';
+                // Store for playback
+                if(processedUrl) URL.revokeObjectURL(processedUrl);
+                processedUrl = url;
+                statusDiv.innerHTML = '✅ Auto‑tune applied! Download started. Click "Play Processed" to listen.';
             } catch(err) {
                 statusDiv.innerHTML = 'Error processing audio: ' + err.message;
             }
@@ -1109,10 +1114,13 @@ autotune_html = """
         
         playProcessedBtn.onclick = () => {
             if(processedBlob) {
+                if(processedUrl) URL.revokeObjectURL(processedUrl);
                 const url = URL.createObjectURL(processedBlob);
+                processedUrl = url;
                 playback.src = url;
                 playback.style.display = 'block';
-                playback.play();
+                playback.load();
+                playback.play().catch(e => statusDiv.innerHTML = 'Play error: ' + e.message);
                 statusDiv.innerHTML = 'Playing processed voice.';
             } else {
                 statusDiv.innerHTML = 'No processed audio. Apply auto‑tune first.';
