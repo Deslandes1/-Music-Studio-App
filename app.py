@@ -68,14 +68,12 @@ if "purchase_unlocked" not in st.session_state:
     st.session_state.purchase_unlocked = False
 
 if not st.session_state.authenticated:
-    # Colorful gradient background for login page
     st.markdown(
         """
         <style>
         .stApp {
             background: linear-gradient(135deg, #1a0b2e, #2d1b4e, #1a0b2e);
         }
-        /* Make all text white on login page */
         .stApp, .stApp h1, .stApp p, .stApp label, .stMarkdown {
             color: white !important;
         }
@@ -107,40 +105,32 @@ st.markdown(
     .stApp {
         background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
     }
-    /* Make all text white for better readability on dark background */
     .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, 
     .stApp label, .stApp .stMarkdown, .stApp .stText, .stApp .stCaption, .stApp .stInfo, 
     .stApp .stSuccess, .stApp .stWarning, .stApp .stError {
         color: white !important;
     }
-    /* Keep alert backgrounds but text white */
     .stAlert {
         color: white !important;
     }
-    /* Button text */
     .stButton button {
         color: white !important;
     }
-    /* Slider labels and values */
     .stSlider label, .stSlider div[data-baseweb="slider"] span {
         color: white !important;
     }
-    /* Checkbox labels */
     .stCheckbox label {
         color: white !important;
     }
-    /* Number input and text input text - except the purchase password field */
     .stNumberInput input, .stTextInput input, .stTextArea textarea {
         color: white !important;
         background-color: rgba(255,255,255,0.1) !important;
     }
-    /* Special rule for the purchase password input - make text black on light background */
     div[data-testid="stTextInput"]:has(input[placeholder="Enter purchase password"]) input {
         color: black !important;
         background-color: #f0f2f6 !important;
         border: 1px solid #ccc !important;
     }
-    /* Sidebar specific - make text black for readability on light background */
     section[data-testid="stSidebar"] {
         background-color: #f0f2f6 !important;
     }
@@ -159,17 +149,14 @@ st.markdown(
     section[data-testid="stSidebar"] .stButton button {
         color: black !important;
     }
-    /* Keep sidebar button background but text black */
     section[data-testid="stSidebar"] .stButton button {
         background-color: #e0e0e0 !important;
         color: black !important;
         border: 1px solid #ccc !important;
     }
-    /* Sidebar logo text override */
     section[data-testid="stSidebar"] p[style*="color: #FFD700"] {
         color: black !important;
     }
-    /* Footer */
     .footer {
         color: white !important;
     }
@@ -204,7 +191,7 @@ with col_title:
     st.markdown("<p style='font-size:1.1rem; color:white;'>🎵 Preview tracks, upload your own, record voice, mix, and create multi‑track beats.</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# SIDEBAR – COMPANY INFO & LOGOUT (updated with black text)
+# SIDEBAR – COMPANY INFO & LOGOUT
 # ------------------------------
 with st.sidebar:
     st.markdown("## 🎧 GlobalInternet.py")
@@ -229,7 +216,7 @@ with st.sidebar:
         st.rerun()
 
 # ------------------------------
-# MULTI-LANGUAGE SUPPORT (unchanged)
+# MULTI-LANGUAGE SUPPORT
 # ------------------------------
 LANGUAGES = {"English":"en","Español":"es","Français":"fr","Kreyòl Ayisyen":"ht"}
 TEXTS = {
@@ -291,7 +278,7 @@ lang_choice = st.sidebar.selectbox("🌐 Language", list(LANGUAGES.keys()))
 st.session_state["language"] = LANGUAGES[lang_choice]
 
 # ------------------------------
-# TRACKS MANAGEMENT (unchanged – 40 demo tracks)
+# TRACKS MANAGEMENT (unchanged)
 # ------------------------------
 TRACKS_DIR = "tracks"
 os.makedirs(TRACKS_DIR, exist_ok=True)
@@ -351,7 +338,7 @@ track_source = all_track_url_or_path[selected_index]
 st.audio(track_source, format="audio/mp3")
 
 # ------------------------------
-# UNLOCK & DOWNLOAD (unchanged)
+# UNLOCK & DOWNLOAD
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #FFD700;'>{get_text('purchase_password_label')}</h3>", unsafe_allow_html=True)
@@ -388,7 +375,7 @@ else:
 st.markdown(f"<p>{get_text('contact')}</p>", unsafe_allow_html=True)
 
 # ------------------------------
-# VOICE RECORDING (unchanged)
+# VOICE RECORDING (simple recorder)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #FFD700;'>{get_text('voice_rec_title')}</h3>", unsafe_allow_html=True)
@@ -405,22 +392,16 @@ recorder_html = """
     let mediaRecorder;
     let audioChunks = [];
     let stream = null;
-
     const recordBtn = document.getElementById('recordBtn');
     const stopBtn = document.getElementById('stopBtn');
     const statusDiv = document.getElementById('recording-status');
     const audioPlayback = document.getElementById('audioPlayback');
-
     recordBtn.onclick = async () => {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
-
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
-
+            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
             mediaRecorder.onstop = () => {
                 const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
                 const audioUrl = URL.createObjectURL(audioBlob);
@@ -430,15 +411,13 @@ recorder_html = """
                 const reader = new FileReader();
                 reader.onloadend = () => {
                     const base64data = reader.result.split(',')[1];
-                    const data = { type: 'recording', data: base64data };
-                    window.parent.postMessage(data, '*');
+                    window.parent.postMessage({ type: 'recording', data: base64data }, '*');
                 };
                 reader.readAsDataURL(audioBlob);
                 if (stream) stream.getTracks().forEach(track => track.stop());
                 recordBtn.disabled = false;
                 stopBtn.disabled = true;
             };
-
             mediaRecorder.start();
             recordBtn.disabled = true;
             stopBtn.disabled = false;
@@ -448,7 +427,6 @@ recorder_html = """
             statusDiv.innerHTML = 'Error accessing microphone: ' + err.message;
         }
     };
-
     stopBtn.onclick = () => {
         if (mediaRecorder && mediaRecorder.state === 'recording') {
             mediaRecorder.stop();
@@ -466,7 +444,7 @@ if voice_file is not None:
     st.success("Voice file loaded. You can now mix it with the backing track.")
 
 # ------------------------------
-# SING OVER TRACK (unchanged)
+# SING OVER TRACK (mix voice with backing)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #FFD700;'>{get_text('sing_over_title')}</h3>", unsafe_allow_html=True)
@@ -512,7 +490,7 @@ if st.button(get_text("mix_with_recording"), use_container_width=True):
 st.caption("Tip: First record your voice using the recorder above, then download it and upload it here.")
 
 # ------------------------------
-# STUDIO EFFECTS (unchanged)
+# STUDIO EFFECTS (pedalboard)
 # ------------------------------
 if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_bytes:
     st.markdown("---")
@@ -569,7 +547,7 @@ if "mixed_audio_bytes" in st.session_state and st.session_state.mixed_audio_byte
             st.markdown(f'<a href="data:audio/mp3;base64,{final_b64}" download="final_track.mp3" class="download-btn">📥 Download Final Track (with Effects)</a>', unsafe_allow_html=True)
 
 # ------------------------------
-# ORIGINAL BEAT MAKER (unchanged)
+# ORIGINAL BEAT MAKER (simple)
 # ------------------------------
 st.markdown("---")
 st.markdown(f"<h3 style='color: #FFD700;'>{get_text('beat_maker_title')}</h3>", unsafe_allow_html=True)
@@ -716,7 +694,7 @@ if st.button(get_text("download_beat")):
 st.caption("Tip: Create patterns for each drum, adjust volume faders, then play all together. Download the mixed WAV and upload it as a track.")
 
 # ------------------------------
-# ENHANCED INFINITY BEAT MAKER (8 drum tracks + continuous loops + Auto‑Tune Voice)
+# ENHANCED INFINITY BEAT MAKER (8 tracks + continuous loops)
 # ------------------------------
 st.markdown("---")
 st.markdown("<h3 style='color: #FFD700;'>🎛️ Infinity Beat Maker (Pro)</h3>", unsafe_allow_html=True)
@@ -735,8 +713,6 @@ infinity_beat_html = """
             <span id="bpmValue" style="background:#00000066; padding:4px 12px; border-radius:20px; color:#0ff;">120</span>
         </div>
     </div>
-
-    <!-- 8 Drum Tracks (grid) -->
     <div style="margin-bottom:28px;">
         <div style="display:grid; grid-template-columns:90px repeat(16, 1fr); gap:4px; margin-bottom:8px; align-items:center;">
             <div style="color:#0ff; font-weight:bold;">Kick</div>
@@ -771,8 +747,6 @@ infinity_beat_html = """
             <div id="percGrid" style="display:contents;"></div>
         </div>
     </div>
-
-    <!-- Continuous Tracks (toggle + volume) -->
     <div style="background:#0f1222; border-radius:20px; padding:15px; margin:20px 0;">
         <div style="display:flex; flex-wrap:wrap; gap:30px; justify-content:space-between;">
             <div style="flex:1; min-width:180px;">
@@ -793,8 +767,6 @@ infinity_beat_html = """
             </div>
         </div>
     </div>
-
-    <!-- Master Volume & Render -->
     <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; margin-top:20px;">
         <div style="display:flex; gap:15px; align-items:center;">
             <span style="color:#0ff;">Master Vol</span>
@@ -804,7 +776,6 @@ infinity_beat_html = """
     </div>
     <div id="renderStatus" style="color:#0fa; margin-top:12px; font-size:0.8rem;"></div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.js"></script>
 <script>
     (function(){
@@ -854,7 +825,6 @@ infinity_beat_html = """
         let bassActive = false;
         let padActive = false;
 
-        // Synths & Gains
         const kickSynth = new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 4 }).toDestination();
         const snareSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.2, sustain: 0 } }).toDestination();
         const hihatSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.001, decay: 0.05, sustain: 0 } }).toDestination();
@@ -863,17 +833,14 @@ infinity_beat_html = """
         const crashSynth = new Tone.NoiseSynth({ noise: { type: 'white' }, envelope: { attack: 0.01, decay: 0.8, sustain: 0 } }).toDestination();
         const tomSynth = new Tone.MembraneSynth({ pitchDecay: 0.1, octaves: 3 }).toDestination();
         const percSynth = new Tone.MetalSynth({ frequency: 800, envelope: { attack: 0.001, decay: 0.2 } }).toDestination();
-        
         const bassSynth = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.2, sustain: 0.7, release: 0.3 } }).toDestination();
         bassSynth.volume.value = -6;
         const padSynth = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.5, decay: 0.8, sustain: 0.6, release: 1.5 } }).toDestination();
         padSynth.volume.value = -12;
-        
         const bassGain = new Tone.Gain(0.8).toDestination();
         const padGain = new Tone.Gain(0.7).toDestination();
         bassSynth.connect(bassGain);
         padSynth.connect(padGain);
-        
         const masterGain = new Tone.Gain(0.8).toDestination();
         [kickSynth, snareSynth, hihatSynth, clapSynth, openhatSynth, crashSynth, tomSynth, percSynth, bassGain, padGain].forEach(s => s.connect(masterGain));
         
@@ -1025,7 +992,7 @@ infinity_beat_html = """
 st.components.v1.html(infinity_beat_html, height=750)
 
 # ------------------------------
-# NEW: AUTO-TUNE VOICE RECORDER (with real‑time pitch correction)
+# FIXED AUTO‑TUNE VOICE RECORDER (uses resampling for reliable pitch shift)
 # ------------------------------
 st.markdown("---")
 st.markdown("<h3 style='color: #FFD700;'>🎤 Auto‑Tune Voice Recorder</h3>", unsafe_allow_html=True)
@@ -1042,6 +1009,7 @@ autotune_html = """
             <span id="atPitchValue" style="color:#0ff;">0</span>
         </div>
         <button id="atProcessBtn" style="background:#0f6; color:#000; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">✨ Apply Auto‑Tune & Download</button>
+        <button id="atPlayProcessedBtn" style="background:#ffaa00; color:#000; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">🔊 Play Processed</button>
     </div>
     <div id="atStatus" style="color:#ffaa00; margin-bottom:10px;"></div>
     <audio id="atPlayback" controls style="width:100%; display:none;"></audio>
@@ -1052,6 +1020,7 @@ autotune_html = """
         let audioChunks = [];
         let stream = null;
         let recordedBlob = null;
+        let processedBlob = null;
         const recordBtn = document.getElementById('atRecordBtn');
         const stopBtn = document.getElementById('atStopBtn');
         const statusDiv = document.getElementById('atStatus');
@@ -1059,6 +1028,7 @@ autotune_html = """
         const pitchSlider = document.getElementById('atPitchSlider');
         const pitchVal = document.getElementById('atPitchValue');
         const processBtn = document.getElementById('atProcessBtn');
+        const playProcessedBtn = document.getElementById('atPlayProcessedBtn');
         
         pitchSlider.addEventListener('input', () => { pitchVal.innerText = pitchSlider.value; });
         
@@ -1093,42 +1063,37 @@ autotune_html = """
                 statusDiv.innerHTML = 'Processing...';
             }
         };
-        processBtn.onclick = () => {
+        
+        // Pitch shift using resampling (playback rate change + resample to original sample rate)
+        async function pitchShiftAudio(blob, semitones) {
+            const arrayBuffer = await blob.arrayBuffer();
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+            const sampleRate = audioBuffer.sampleRate;
+            const ratio = Math.pow(2, semitones / 12);
+            const newLength = Math.floor(audioBuffer.length / ratio);
+            const offlineContext = new OfflineAudioContext(audioBuffer.numberOfChannels, newLength, sampleRate);
+            const source = offlineContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.playbackRate.value = ratio;
+            source.connect(offlineContext.destination);
+            source.start();
+            const renderedBuffer = await offlineContext.startRendering();
+            // convert to WAV blob
+            const wavBlob = bufferToWav(renderedBuffer);
+            return wavBlob;
+        }
+        
+        processBtn.onclick = async () => {
             if(!recordedBlob) {
                 statusDiv.innerHTML = 'No recording. Please record first.';
                 return;
             }
-            const pitch = parseFloat(pitchSlider.value);
+            const semitones = parseFloat(pitchSlider.value);
             statusDiv.innerHTML = 'Applying pitch shift (auto‑tune)... please wait.';
-            const reader = new FileReader();
-            reader.onload = async function(e) {
-                const arrayBuffer = e.target.result;
-                // Use Web Audio API to pitch shift
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-                const offlineContext = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
-                const source = offlineContext.createBufferSource();
-                source.buffer = audioBuffer;
-                const pitchShifter = offlineContext.createScriptProcessor(4096, 1, 1);
-                let ratio = Math.pow(2, pitch/12);
-                let phase = 0;
-                pitchShifter.onaudioprocess = function(event) {
-                    const input = event.inputBuffer.getChannelData(0);
-                    const output = event.outputBuffer.getChannelData(0);
-                    for (let i = 0; i < input.length; i++) {
-                        phase += ratio;
-                        if (phase >= 1) phase -= 1;
-                        let index = Math.floor(phase * input.length);
-                        output[i] = input[index % input.length];
-                    }
-                };
-                source.connect(pitchShifter);
-                pitchShifter.connect(offlineContext.destination);
-                source.start();
-                const renderedBuffer = await offlineContext.startRendering();
-                // convert to WAV blob
-                const wavBlob = bufferToWav(renderedBuffer);
-                const url = URL.createObjectURL(wavBlob);
+            try {
+                processedBlob = await pitchShiftAudio(recordedBlob, semitones);
+                const url = URL.createObjectURL(processedBlob);
                 const a = document.createElement('a');
                 a.href = url;
                 a.download = 'autotune_voice.wav';
@@ -1136,14 +1101,24 @@ autotune_html = """
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-                statusDiv.innerHTML = '✅ Auto‑tune applied! Download started.';
-                // also play back
-                const playUrl = URL.createObjectURL(wavBlob);
-                playback.src = playUrl;
-                playback.style.display = 'block';
-            };
-            reader.readAsArrayBuffer(recordedBlob);
+                statusDiv.innerHTML = '✅ Auto‑tune applied! Download started. You can click "Play Processed" to listen.';
+            } catch(err) {
+                statusDiv.innerHTML = 'Error processing audio: ' + err.message;
+            }
         };
+        
+        playProcessedBtn.onclick = () => {
+            if(processedBlob) {
+                const url = URL.createObjectURL(processedBlob);
+                playback.src = url;
+                playback.style.display = 'block';
+                playback.play();
+                statusDiv.innerHTML = 'Playing processed voice.';
+            } else {
+                statusDiv.innerHTML = 'No processed audio. Apply auto‑tune first.';
+            }
+        };
+        
         function bufferToWav(buffer) {
             const numChannels = buffer.numberOfChannels;
             const sampleRate = buffer.sampleRate;
@@ -1154,6 +1129,9 @@ autotune_html = """
             let bufferLength = 44 + dataLength;
             const arrayBuffer = new ArrayBuffer(bufferLength);
             const view = new DataView(arrayBuffer);
+            function writeString(view, offset, str) {
+                for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+            }
             writeString(view, 0, 'RIFF');
             view.setUint32(4, bufferLength - 8, true);
             writeString(view, 8, 'WAVE');
@@ -1175,13 +1153,10 @@ autotune_html = """
             }
             return new Blob([view], { type: 'audio/wav' });
         }
-        function writeString(view, offset, str) {
-            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
-        }
     })();
 </script>
 """
-st.components.v1.html(autotune_html, height=300)
+st.components.v1.html(autotune_html, height=350)
 
 # ------------------------------
 # FOOTER
