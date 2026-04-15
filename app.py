@@ -992,11 +992,11 @@ infinity_beat_html = """
 st.components.v1.html(infinity_beat_html, height=750)
 
 # ------------------------------
-# FIXED AUTO‑TUNE VOICE RECORDER (Play Processed works)
+# PRO AUTO‑TUNE VOICE RECORDER (with formant shift, scale quantization, reverb, delay, doubler)
 # ------------------------------
 st.markdown("---")
-st.markdown("<h3 style='color: #FFD700;'>🎤 Auto‑Tune Voice Recorder</h3>", unsafe_allow_html=True)
-st.markdown("Record your voice, apply professional pitch correction (auto‑tune), and download the processed audio.", unsafe_allow_html=True)
+st.markdown("<h3 style='color: #FFD700;'>🎤 Pro Auto‑Tune Voice Recorder</h3>", unsafe_allow_html=True)
+st.markdown("Professional vocal processor: pitch correction, formant shift, reverb, delay, and doubler. Record or upload, then apply effects and download.", unsafe_allow_html=True)
 
 autotune_html = """
 <div id="autotune-container" style="background:#0f1222; border-radius:24px; padding:20px; margin:15px 0;">
@@ -1008,7 +1008,34 @@ autotune_html = """
             <input type="range" id="atPitchSlider" min="-12" max="12" value="0" step="1" style="width:150px;">
             <span id="atPitchValue" style="color:#0ff;">0</span>
         </div>
-        <button id="atProcessBtn" style="background:#0f6; color:#000; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">✨ Apply Auto‑Tune & Download</button>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="color:#0ff;">Formant (semitones)</span>
+            <input type="range" id="atFormantSlider" min="-6" max="6" value="0" step="1" style="width:150px;">
+            <span id="atFormantValue" style="color:#0ff;">0</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="color:#0ff;">Reverb %</span>
+            <input type="range" id="atReverbSlider" min="0" max="100" value="30" step="5" style="width:120px;">
+            <span id="atReverbValue" style="color:#0ff;">30%</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="color:#0ff;">Delay %</span>
+            <input type="range" id="atDelaySlider" min="0" max="100" value="20" step="5" style="width:120px;">
+            <span id="atDelayValue" style="color:#0ff;">20%</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <span style="color:#0ff;">Doubler</span>
+            <input type="range" id="atDoublerSlider" min="0" max="100" value="0" step="10" style="width:100px;">
+            <span id="atDoublerValue" style="color:#0ff;">0%</span>
+        </div>
+    </div>
+    <div style="display:flex; gap:15px; margin-bottom:15px;">
+        <label style="color:#0ff; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="quantizeCheckbox"> Quantize to C Major scale
+        </label>
+    </div>
+    <div style="display:flex; gap:15px; flex-wrap:wrap; margin-bottom:20px;">
+        <button id="atProcessBtn" style="background:#0f6; color:#000; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">✨ Apply Effects & Download</button>
         <button id="atPlayProcessedBtn" style="background:#ffaa00; color:#000; border:none; border-radius:40px; padding:8px 20px; cursor:pointer;">🔊 Play Processed</button>
     </div>
     <div id="atStatus" style="color:#ffaa00; margin-bottom:10px;"></div>
@@ -1028,10 +1055,23 @@ autotune_html = """
         const playback = document.getElementById('atPlayback');
         const pitchSlider = document.getElementById('atPitchSlider');
         const pitchVal = document.getElementById('atPitchValue');
+        const formantSlider = document.getElementById('atFormantSlider');
+        const formantVal = document.getElementById('atFormantValue');
+        const reverbSlider = document.getElementById('atReverbSlider');
+        const reverbVal = document.getElementById('atReverbValue');
+        const delaySlider = document.getElementById('atDelaySlider');
+        const delayVal = document.getElementById('atDelayValue');
+        const doublerSlider = document.getElementById('atDoublerSlider');
+        const doublerVal = document.getElementById('atDoublerValue');
+        const quantizeCheck = document.getElementById('quantizeCheckbox');
         const processBtn = document.getElementById('atProcessBtn');
         const playProcessedBtn = document.getElementById('atPlayProcessedBtn');
         
         pitchSlider.addEventListener('input', () => { pitchVal.innerText = pitchSlider.value; });
+        formantSlider.addEventListener('input', () => { formantVal.innerText = formantSlider.value; });
+        reverbSlider.addEventListener('input', () => { reverbVal.innerText = reverbSlider.value + '%'; });
+        delaySlider.addEventListener('input', () => { delayVal.innerText = delaySlider.value + '%'; });
+        doublerSlider.addEventListener('input', () => { doublerVal.innerText = doublerSlider.value + '%'; });
         
         recordBtn.onclick = async () => {
             try {
@@ -1044,11 +1084,10 @@ autotune_html = """
                     const url = URL.createObjectURL(recordedBlob);
                     playback.src = url;
                     playback.style.display = 'block';
-                    statusDiv.innerHTML = 'Recording saved. Use slider to set pitch shift, then click "Apply Auto‑Tune & Download".';
+                    statusDiv.innerHTML = 'Recording saved. Adjust effects, then click "Apply Effects & Download".';
                     if(stream) stream.getTracks().forEach(t => t.stop());
                     recordBtn.disabled = false;
                     stopBtn.disabled = true;
-                    // reset processed blob
                     processedBlob = null;
                     if(processedUrl) URL.revokeObjectURL(processedUrl);
                     processedUrl = null;
@@ -1069,10 +1108,8 @@ autotune_html = """
             }
         };
         
-        async function pitchShiftAudio(blob, semitones) {
-            const arrayBuffer = await blob.arrayBuffer();
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        // Pitch shift using resampling (for overall pitch)
+        async function pitchShiftAudio(audioBuffer, semitones) {
             const sampleRate = audioBuffer.sampleRate;
             const ratio = Math.pow(2, semitones / 12);
             const newLength = Math.floor(audioBuffer.length / ratio);
@@ -1082,8 +1119,135 @@ autotune_html = """
             source.playbackRate.value = ratio;
             source.connect(offlineContext.destination);
             source.start();
-            const renderedBuffer = await offlineContext.startRendering();
-            return bufferToWav(renderedBuffer);
+            return await offlineContext.startRendering();
+        }
+        
+        // Formant shift via simple resampling of a different rate (approximate)
+        async function formantShift(audioBuffer, semitones) {
+            // This is a simplified formant shifter: resample then resample back
+            // Better would be phase vocoder, but for demo we use a basic approach
+            const sampleRate = audioBuffer.sampleRate;
+            const ratio = Math.pow(2, semitones / 12);
+            // First stretch
+            const stretchedLength = Math.floor(audioBuffer.length * ratio);
+            const offlineStretch = new OfflineAudioContext(audioBuffer.numberOfChannels, stretchedLength, sampleRate);
+            const sourceStretch = offlineStretch.createBufferSource();
+            sourceStretch.buffer = audioBuffer;
+            sourceStretch.playbackRate.value = 1 / ratio;
+            sourceStretch.connect(offlineStretch.destination);
+            sourceStretch.start();
+            const stretched = await offlineStretch.startRendering();
+            // Then compress back to original length
+            const finalLength = audioBuffer.length;
+            const offlineCompress = new OfflineAudioContext(audioBuffer.numberOfChannels, finalLength, sampleRate);
+            const sourceCompress = offlineCompress.createBufferSource();
+            sourceCompress.buffer = stretched;
+            sourceCompress.playbackRate.value = ratio;
+            sourceCompress.connect(offlineCompress.destination);
+            sourceCompress.start();
+            return await offlineCompress.startRendering();
+        }
+        
+        // Simple reverb: convolution with exponential decay
+        async function addReverb(audioBuffer, wetPercent) {
+            if(wetPercent === 0) return audioBuffer;
+            const sampleRate = audioBuffer.sampleRate;
+            const irLength = Math.floor(sampleRate * 0.5); // 0.5 sec impulse
+            const impulse = new Float32Array(irLength);
+            for(let i=0; i<irLength; i++) impulse[i] = (Math.random() * 2 - 1) * Math.exp(-i / (sampleRate * 0.1));
+            const impulseBuffer = new AudioBuffer({ numberOfChannels: 1, length: irLength, sampleRate: sampleRate });
+            impulseBuffer.copyToChannel(impulse, 0);
+            const offline = new OfflineAudioContext(1, audioBuffer.length + irLength, sampleRate);
+            const source = offline.createBufferSource();
+            source.buffer = audioBuffer;
+            const convolver = offline.createConvolver();
+            convolver.buffer = impulseBuffer;
+            const gainDry = offline.createGain();
+            const gainWet = offline.createGain();
+            gainDry.gain.value = 1 - wetPercent/100;
+            gainWet.gain.value = wetPercent/100;
+            source.connect(convolver);
+            convolver.connect(gainWet);
+            source.connect(gainDry);
+            gainDry.connect(offline.destination);
+            gainWet.connect(offline.destination);
+            source.start();
+            return await offline.startRendering();
+        }
+        
+        // Simple delay: feedback loop
+        async function addDelay(audioBuffer, wetPercent) {
+            if(wetPercent === 0) return audioBuffer;
+            const sampleRate = audioBuffer.sampleRate;
+            const delayTime = 0.3; // seconds
+            const feedback = 0.4;
+            const offline = new OfflineAudioContext(audioBuffer.numberOfChannels, audioBuffer.length + Math.floor(sampleRate * delayTime * 2), sampleRate);
+            const source = offline.createBufferSource();
+            source.buffer = audioBuffer;
+            const delay = offline.createDelay();
+            delay.delayTime.value = delayTime;
+            const feedbackGain = offline.createGain();
+            feedbackGain.gain.value = feedback;
+            const wetGain = offline.createGain();
+            wetGain.gain.value = wetPercent/100;
+            const dryGain = offline.createGain();
+            dryGain.gain.value = 1 - wetPercent/100;
+            source.connect(dryGain);
+            source.connect(delay);
+            delay.connect(feedbackGain);
+            feedbackGain.connect(delay);
+            delay.connect(wetGain);
+            dryGain.connect(offline.destination);
+            wetGain.connect(offline.destination);
+            source.start();
+            return await offline.startRendering();
+        }
+        
+        // Doubler: mix with slightly pitch-shifted copy
+        async function addDoubler(audioBuffer, amountPercent) {
+            if(amountPercent === 0) return audioBuffer;
+            const ratio = Math.pow(2, 7/12); // +7 semitones for doubler
+            const sampleRate = audioBuffer.sampleRate;
+            const newLength = Math.floor(audioBuffer.length / ratio);
+            const offlineShift = new OfflineAudioContext(audioBuffer.numberOfChannels, newLength, sampleRate);
+            const sourceShift = offlineShift.createBufferSource();
+            sourceShift.buffer = audioBuffer;
+            sourceShift.playbackRate.value = ratio;
+            sourceShift.connect(offlineShift.destination);
+            sourceShift.start();
+            const shifted = await offlineShift.startRendering();
+            // mix
+            const offlineMix = new OfflineAudioContext(audioBuffer.numberOfChannels, Math.max(audioBuffer.length, shifted.length), sampleRate);
+            const sourceOriginal = offlineMix.createBufferSource();
+            sourceOriginal.buffer = audioBuffer;
+            const sourceShifted = offlineMix.createBufferSource();
+            sourceShifted.buffer = shifted;
+            const gainOriginal = offlineMix.createGain();
+            gainOriginal.gain.value = 1 - amountPercent/100;
+            const gainShifted = offlineMix.createGain();
+            gainShifted.gain.value = amountPercent/100;
+            sourceOriginal.connect(gainOriginal);
+            sourceShifted.connect(gainShifted);
+            gainOriginal.connect(offlineMix.destination);
+            gainShifted.connect(offlineMix.destination);
+            sourceOriginal.start();
+            sourceShifted.start();
+            return await offlineMix.startRendering();
+        }
+        
+        // Pitch quantization to nearest C major scale note (simplified)
+        function quantizePitch(semitones) {
+            if(!quantizeCheck.checked) return semitones;
+            // C major scale: 0,2,4,5,7,9,11 (relative to C)
+            const scale = [0,2,4,5,7,9,11];
+            let best = semitones;
+            let minDiff = 100;
+            for(let s of scale) {
+                let diff = Math.abs(semitones - s);
+                if(diff > 6) diff = 12 - diff;
+                if(diff < minDiff) { minDiff = diff; best = s; }
+            }
+            return best;
         }
         
         processBtn.onclick = async () => {
@@ -1091,22 +1255,45 @@ autotune_html = """
                 statusDiv.innerHTML = 'No recording. Please record first.';
                 return;
             }
-            const semitones = parseFloat(pitchSlider.value);
-            statusDiv.innerHTML = 'Applying pitch shift (auto‑tune)... please wait.';
+            statusDiv.innerHTML = 'Processing effects... please wait.';
             try {
-                processedBlob = await pitchShiftAudio(recordedBlob, semitones);
-                // Create a download link
+                let arrayBuffer = await recordedBlob.arrayBuffer();
+                let audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                let audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                let semitones = parseFloat(pitchSlider.value);
+                let quantized = quantizePitch(semitones);
+                if(quantized !== semitones) {
+                    statusDiv.innerHTML = `Quantizing pitch from ${semitones} to ${quantized} semitones.`;
+                    semitones = quantized;
+                }
+                // Apply pitch shift
+                if(semitones !== 0) audioBuffer = await pitchShiftAudio(audioBuffer, semitones);
+                // Apply formant shift
+                let formant = parseFloat(formantSlider.value);
+                if(formant !== 0) audioBuffer = await formantShift(audioBuffer, formant);
+                // Apply reverb
+                let reverbAmt = parseFloat(reverbSlider.value);
+                if(reverbAmt > 0) audioBuffer = await addReverb(audioBuffer, reverbAmt);
+                // Apply delay
+                let delayAmt = parseFloat(delaySlider.value);
+                if(delayAmt > 0) audioBuffer = await addDelay(audioBuffer, delayAmt);
+                // Apply doubler
+                let doublerAmt = parseFloat(doublerSlider.value);
+                if(doublerAmt > 0) audioBuffer = await addDoubler(audioBuffer, doublerAmt);
+                
+                // Convert to WAV
+                const wavBlob = bufferToWav(audioBuffer);
+                processedBlob = wavBlob;
                 const url = URL.createObjectURL(processedBlob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'autotune_voice.wav';
+                a.download = 'autotune_voice_pro.wav';
                 document.body.appendChild(a);
                 a.click();
                 document.body.removeChild(a);
-                // Store for playback
                 if(processedUrl) URL.revokeObjectURL(processedUrl);
                 processedUrl = url;
-                statusDiv.innerHTML = '✅ Auto‑tune applied! Download started. Click "Play Processed" to listen.';
+                statusDiv.innerHTML = '✅ Effects applied! Download started. Click "Play Processed" to listen.';
             } catch(err) {
                 statusDiv.innerHTML = 'Error processing audio: ' + err.message;
             }
@@ -1123,7 +1310,7 @@ autotune_html = """
                 playback.play().catch(e => statusDiv.innerHTML = 'Play error: ' + e.message);
                 statusDiv.innerHTML = 'Playing processed voice.';
             } else {
-                statusDiv.innerHTML = 'No processed audio. Apply auto‑tune first.';
+                statusDiv.innerHTML = 'No processed audio. Apply effects first.';
             }
         };
         
@@ -1164,7 +1351,7 @@ autotune_html = """
     })();
 </script>
 """
-st.components.v1.html(autotune_html, height=350)
+st.components.v1.html(autotune_html, height=480)
 
 # ------------------------------
 # FOOTER
